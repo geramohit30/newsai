@@ -4,29 +4,16 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 
-async function downloadImage(url, filepath) {
-    return new Promise((resolve, reject) => {
-        const file = fs.createWriteStream(filepath);
-        https.get(url, (response) => {
-            response.pipe(file);
-            file.on('finish', () => {
-                file.close(resolve);
-            });
-        }).on('error', (error) => {
-            fs.unlink(filepath, () => {});
-            reject(error);
-        });
-    });
-}
-
 async function scrapeWebsite(url) {
     try {
         // Fetch the HTML of the page
-        const { data } = await axios.get(url);
+        const { data } = await axios.get(url,{
+                        httpsAgent: new https.Agent({rejectUnauthorized:false})
+                    });
         
         // Load the HTML into cheerio
         const $ = cheerio.load(data);
-        
+        await new Promise(res =>setTimeout(res,2000));
         // Select elements and extract data
         let scrapedData = [];
         
@@ -59,4 +46,4 @@ async function scrapeWebsite(url) {
 }
 
 
-scrapeWebsite('https://www.hindustantimes.com/');
+scrapeWebsite('https://www.hindustantimes.com/india-news');
