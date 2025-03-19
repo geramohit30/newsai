@@ -1,7 +1,7 @@
 var {MongoClient} = require('mongodb');
-var url = "mongodb://172.17.0.3:27017";
+var url = "mongodb+srv://sharmashivansh0782:sharmashivansh0782@scrapping.eiwsy.mongodb.net/?retryWrites=true&w=majority&appName=Scrapping";
 
-const client = new MongoClient(url,{useUnifiedTopology:true})
+const client = new MongoClient(url,{ useNewUrlParser: true, useUnifiedTopology: true })
 async function connect() {
     try{
         if(!client.topology || !client.topology.isConnected()){

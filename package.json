@@ -10,12 +10,13 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "@huggingface/inference": "^3.6.1",
     "axios": "^1.8.3",
     "cheerio": "^1.0.0",
     "csv-reader": "^1.0.12",
     "express": "^4.21.2",
     "fast-xml-parser": "^5.0.9",
-    "mongodb": "^6.14.2",
+    "mongodb": "^6.15.0",
     "node-fetch": "^3.3.2",
     "nodemon": "^3.1.9",
     "rss-parser": "^3.13.0"
