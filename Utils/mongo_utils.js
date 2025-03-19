@@ -1,7 +1,7 @@
 var {MongoClient} = require('mongodb');
 var url = "mongodb+srv://sharmashivansh0782:sharmashivansh0782@scrapping.eiwsy.mongodb.net/?retryWrites=true&w=majority&appName=Scrapping&&ssl=false";
 
-const client = new MongoClient(url,{ useNewUrlParser: true, useUnifiedTopology: true, tls: true,tlsAllowInvalidCertificates: true })
+const client = new MongoClient(url,{ useNewUrlParser: true, useUnifiedTopology: true, ssl: false })
 
 async function connect() {
     try{
