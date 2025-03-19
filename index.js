@@ -54,6 +54,8 @@ app.get('/raw-news',async (req,res)=>{
     }
     
 })
+app.get('/random',(req,res)=>{
+    res.send('Hola')})
 // Start the server
 app.listen(3000, () => {
     console.log('Server is running on http://localhost:3000');
