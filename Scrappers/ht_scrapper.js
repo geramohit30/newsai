@@ -4,11 +4,12 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const { json } = require('express/lib/response');
-const fetch = require('node-fetch')
 let {XMLParser} = require('fast-xml-parser');
 const parser = new XMLParser();
 const connect = require('../Utils/mongo_utils');
 const summarizeText = require('../Summarize/hugging_face')
+const nlp = require('../Summarize/nlp')
+
 const MAX_LENGTH = 1000;
 async function scrapheadings(url) {
     const db = await connect();
@@ -39,9 +40,10 @@ function delay(ms) {
 
 function preprocessText(articleBody) {
     return articleBody
-        .replace(/\b(according to|quoted by|reported by) (PTI|ANI|news agency ANI|HT)\b/g, "") // Remove sources
-        .replace(/\b(Nagpur Police Commissioner|Maharashtra chief minister|Union minister | minister)\b/g, "") // Simplify titles
-        .replace(/\s+/g, " ") // Normalize spaces
+        .replace(/\b(according to|quoted by|reported by) (PTI|ANI|news agency ANI|HT)\b/g, "")
+        .replace(/\b(Also read|ALSO READ | UP:|BENGALURU:)\b/g, "")
+        .replace(/\b(Nagpur Police Commissioner|Maharashtra chief minister|Union minister | minister)\b/g, "")
+        .replace(/\s+/g, " ") 
         .trim();
 }
 
@@ -71,12 +73,11 @@ async function summarizeInChunks(articleBody) {
 
 async function summarize_data(data, image, keywords, heading) {
     const db = await connect();
-    const col = db.collection('summarized-news');
+    const col = db.collection('test-news');
 
-    // Add delay before calling Hugging Face API
-    await delay(1000); // Adjust the delay if needed
+    await delay(1000);
     const proc_data = preprocessText(data)
-    const summ_text = await summarizeInChunks(proc_data);
+    const summ_text = await nlp(proc_data);
     console.log('Summ : ',summ_text)
     if(!summ_text){
         console.log('Got empty result');
@@ -89,7 +90,6 @@ async function summarize_data(data, image, keywords, heading) {
         "image": image
     });
 
-    // console.log(`Inserted summary for: ${heading}`);
 }
 
 
@@ -112,22 +112,12 @@ async function data_update(url) {
             const parsedata = JSON.parse(jsonText);
 
             if (parsedata['@type'] === "NewsArticle" && (parsedata['headline'] && !parsedata['headline'].includes('India News Live'))) {
-                // articles.push(parsedata);
-                
-                // Push a Promise for summarization
-                // console.log('Print', parsedata['articleBody'])
                 summarize_data(parsedata['articleBody'],parsedata['image'],parsedata['keywords'],parsedata['headline'])
             }
         } catch (error) {
             console.log('Error in HT scraping:', error.message);
         }
     });
-
-    // if (articles.length > 0) {
-    //     await col.insertMany(articles);
-    // }
-
-
     console.log('OUT');
 }
 
