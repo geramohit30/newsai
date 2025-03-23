@@ -1,0 +1,15 @@
+livemint - title,link,description,pubDate,guid,media:content
+ind_tv - title,link,description,pubDate
+Ht - title,description,link,guid,category,pubDate,media:content
+
+
+Code flow : 
+1. Auth routes : 
+    a. Login
+    b. Register
+2. News routes:
+    a. News
+    b. News/:id
+3. Scrappers:
+    a. Heading scrapper
+    b. News scrapper

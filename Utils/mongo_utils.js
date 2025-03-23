@@ -1,18 +1,19 @@
-var {MongoClient} = require('mongodb');
-var url = "mongodb+srv://sharmashivansh0782:sharmashivansh0782@scrapping.eiwsy.mongodb.net/?retryWrites=true&w=majority&appName=Scrapping"
-const client = new MongoClient(url,{ useNewUrlParser: true, useUnifiedTopology: true })
+const mongoose = require('mongoose');
+require('dotenv').config();
 
-async function connect() {
-    try{
-        if(!client.topology || !client.topology.isConnected()){
-            await client.connect()
-        }
-        return client.db('SP')
+const connectDB = async () => {
+    try {
+        await mongoose.connect(process.env.MONGO_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 30000,
+    socketTimeoutMS: 45000,
+        });
+        console.log('MongoDB Connected...');
+    } catch (error) {
+        console.error('MongoDB Connection Error:', error.message);
+        process.exit(1);
     }
-    catch(error){
-        console.log('Error while connecting to mongo', error);
-        throw error;
-    }
-}
+};
 
-module.exports = connect;
+module.exports = connectDB;
