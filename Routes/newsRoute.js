@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const newsController = require('../Controllers/newsController');
 const { authMiddleware } = require('../Middlewares/authMiddleware');
+const { adminAuth } = require('../Middlewares/adminMiddleware');
 
 
 router.get('/articles', newsController.getNews);
