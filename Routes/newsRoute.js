@@ -2,9 +2,12 @@ const express = require('express');
 const router = express.Router();
 const newsController = require('../Controllers/newsController');
 const { authMiddleware } = require('../Middlewares/authMiddleware');
+const { adminAuth } = require('../Middlewares/adminMiddleware');
 
-// Routes with Authentication
-router.get('/news', newsController.getNews);
-router.get('/news/:id', newsController.getNewsById);
+
+router.get('/articles', newsController.getNews);
+router.get('/article/:id', newsController.getNewsById);
+router.get('/articles/pending', adminAuth, newsController.getPendingNews);
+router.post('/article/:id/approve', adminAuth, newsController.approveNewsById);
 
 module.exports = router;
