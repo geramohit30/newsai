@@ -1,62 +1,23 @@
-// Import Express
+require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
+const connectDB = require('./Utils/mongo_utils');
+
+const newsRoutes = require('./Routes/newsRoute');
+const authRoutes = require('./Routes/authRoute');
+
 const app = express();
-const connect = require('./Utils/mongo_utils');
-const fs = require('fs')
-const path = require('path')
+app.use(express.json());
+app.use(cors());
 
-// Define a route
-app.get('/', (req, res) => {
-    res.send('Welcome to the Express.js Tutorial');
+connectDB();
+app.use('/api', newsRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/', (req, res) => {
+    res.send('Hi, Welcome to new ai');
 });
-app.get('/headlines',async(req,res)=>{
-    const db = await connect();
-        const col = db.collection('raw-news')
-    
-        const data = await col.find({},{projection:{headline:1,description:1,keywords:1,image:1,_id:0}}).toArray();
-        res.json({data:data})
-})
 
-app.get('/news',async (req,res)=>{
-    try{
-        const db = await connect();
-        const col = db.collection('summarized-news')
-    
-        const data = await col.find({},{projection:{heading:1,keywords:1,data:1,image:1,_id:0}}).toArray();
-        const filter_data = data
-    .filter(elem => elem.data && elem.data.trim() !== "") // Removes empty or whitespace-only data
-    .map(elem => ({
-        heading: elem.heading,
-        keywords: elem.keywords,
-        data: elem.data,
-        image: elem.image.url
-    }));
-        res.json({data:filter_data})
-    }
-    catch(error){
-        console.log('Getting error', error);
-        res.send('Error')
-    }
-    
-})
-
-app.get('/raw-news',async (req,res)=>{
-    try{
-        const db = await connect();
-        const col = db.collection('raw-news')
-    
-        const data = await col.find({},{projection:{headline:1,articleBody:1,image:1,_id:0}}).toArray();
-        res.json({data:data})
-    }
-    catch(error){
-        console.log('Getting error', error);
-        res.send('Error')
-    }
-    
-})
-app.get('/random',(req,res)=>{
-    res.send('Hola')})
-// Start the server
-app.listen(3000, () => {
-    console.log('Server is running on http://localhost:3000');
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
