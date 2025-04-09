@@ -55,3 +55,20 @@ exports.approveNewsById = async (req, res) => {
         res.status(500).json({ message: "Error approving news", error: error.message });
     }
 };
+
+exports.getCategories = async (req, res) => {
+    try {
+        const { categories } = req.query;
+    
+        let query = {};
+        if (categories) {
+          const categoryArray = categories.split(",").map(cat => cat.trim());
+          query = { categories: { $in: categoryArray } };
+        }
+    
+        const newsList = await News.find(query).sort({ createdAt: -1 });
+        res.status(200).json(newsList);
+      } catch (err) {
+        res.status(500).json({ error: "Failed to fetch news", details: err.message });
+      }
+}

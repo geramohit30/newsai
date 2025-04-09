@@ -6,6 +6,7 @@ const connectDB = require('../Utils/mongo_utils');
 const summarizeText = require('../Summarize/hugging_face');
 const News = require('../Models/newsModel');
 const Headings = require('../Models/headingModel');
+const {getCategoryFromKeywords} = require('../Summarize/category')
 
 async function summarize_data(data, image, keywords, heading, heading_id) {
     const summ_text = await summarizeText(data);
@@ -13,13 +14,14 @@ async function summarize_data(data, image, keywords, heading, heading_id) {
         console.log('Got empty result');
         return;
     }
-
+    const category = getCategoryFromKeywords(keywords);
     await News.create({
         heading,
         keywords,
         data: summ_text,
         image,
-        article_id: heading_id
+        article_id: heading_id,
+        category:category
     });
 }
 
