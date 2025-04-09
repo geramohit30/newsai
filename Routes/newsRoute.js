@@ -6,8 +6,10 @@ const { adminAuth } = require('../Middlewares/adminMiddleware');
 
 
 router.get('/articles', newsController.getNews);
+router.get('/categories',newsController.getCategories)
 router.get('/article/:id', newsController.getNewsById);
 router.get('/articles/pending', adminAuth, newsController.getPendingNews);
 router.post('/article/:id/approve', adminAuth, newsController.approveNewsById);
+
 
 module.exports = router;
