@@ -9,9 +9,9 @@ exports.getNews = async (req, res) => {
         if (categories) {
           const categoryArray = categories.split(",").map(cat => cat.trim());
           query = {approved: true , categories: { $in: categoryArray } };
-          newsList = await News.find(query).sort({ createdAt: -1 });
+          newsList = await News.find(query,{heading: 1,"image.url": 1,approved: 1,article_id: 1,categories:1}).sort({ createdAt: -1 });
         }
-        else{ newsList = await News.find({ approved: true });}
+        else{ newsList = await News.find({ approved: true },{heading: 1,"image.url": 1,approved: 1,article_id: 1,categories:1});}
         res.status(200).json({"success":true, "data":newsList});
     } catch (error) {
         res.status(500).json({ message: "Error fetching approved news", error: error.message });
