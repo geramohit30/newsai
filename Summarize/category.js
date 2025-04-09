@@ -23,5 +23,5 @@ const categoryKeywords = {
     return matchedCategories.length ? matchedCategories : ["Uncategorized"];
   }
   
-  module.exports = { getCategoriesFromKeywords };
+  module.exports = getCategoriesFromKeywords ;
   
