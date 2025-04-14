@@ -10,6 +10,9 @@ const categoryKeywords = {
   };
   
   function getCategoriesFromKeywords(keywordsStr) {
+    if(!keywordsStr){
+      return ["Uncategorized"]
+    }
     const keywords = keywordsStr.toLowerCase().split(',').map(k => k.trim());
     const matchedCategories = [];
   

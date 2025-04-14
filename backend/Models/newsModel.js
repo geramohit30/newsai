@@ -5,8 +5,9 @@ const newsSchema = new mongoose.Schema({
     keywords: [String],
     data: { type: String, required: true },
     approved: { type: Boolean, default: false },
-    image: Object,
-    article_id : { type: mongoose.Schema.Types.ObjectId, ref: 'headings', required: true },
+    image: { type: String, required:true},
+    images:[Object],
+    feedId : { type: mongoose.Schema.Types.ObjectId, ref: 'rssfeed', required: true },
     categories: { type: [String], default: [] }
 }, { timestamps: true });
 

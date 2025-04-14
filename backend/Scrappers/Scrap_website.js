@@ -7,9 +7,22 @@ const connectDB = require('../Utils/mongo_utils');
 const summarizeText = require('../Summarize/hugging_face');
 const nlp = require('../Summarize/nlp')
 const News = require('../Models/newsModel');
-const Headings = require('../Models/headingModel');
+const Rssfeed = require('../Models/rssfeedModel');
 const getCategoryFromKeywords = require('../Summarize/category');
+const getImages = require('./Img_scrapper')
 
+
+const UNWANTED_PHRASES = [
+    "click here", 
+    "read more", 
+    "follow us", 
+    "subscribe", 
+    "see also", 
+    "advertisement",
+    "exclusive",
+    "limited time offer",
+    "new offer"
+];
 
 function cleanText(text) {
     let cleanedText = he.decode(text);
@@ -18,37 +31,52 @@ function cleanText(text) {
         cleanedText = cleanedText.replace(regex, "").trim();
     });
     cleanedText = cleanedText.replace(/\s+/g, " ");
-
     return cleanedText;
 }
 
 async function summarize_data(data, image, keywords, heading, heading_id) {
-    if(!data){
-        console.log('The data value is : ', data);
-        return
+    if (!data) {
+        console.log('The data value is:', data);
+        await Rssfeed.updateOne(
+            { _id: heading_id },
+            { $set: { success: false } }
+        );
+        return;
     }
+
     const summ_text = await nlp(data);
     if (!summ_text) {
         console.log('Got empty result');
         return;
     }
+
     const category = getCategoryFromKeywords(keywords);
+    
+    let head;
     try {
-        const head = cleanText(heading)
+        head = cleanText(heading);
     } catch (error) {
-        console.log('Error while get clean heading', error);
+        console.log('Error while getting clean heading', error);
     }
 
+    const images = await getImages(keywords, 5);
+
     await News.create({
-        heading:head?head:heading,
+        heading: head ? head : heading,
         keywords,
         data: summ_text,
-        image,
-        article_id: heading_id,
-        categories:category
+        image: image ? image.url : "",
+        images: images,
+        feedId: heading_id,
+        categories: category
     });
-}
 
+    await Rssfeed.updateOne(
+        { _id: heading_id },
+        { $set: { success: true } }
+    );
+
+}
 async function data_update(url, heading_id) {
     console.log('Processing URL:', url[0]);
 
@@ -81,10 +109,11 @@ async function scrapeWebsite() {
     try {
         if (mongoose.connection.readyState !== 1) {
             console.error("MongoDB not connected.");
-            return;
+            await connectDB();
+            // return;
         }
 
-        const all_data = await Headings.find().lean();
+        const all_data = await Rssfeed.find().lean();
 
         if (!all_data.length) {
             console.log("No headings found in the database.");
@@ -108,5 +137,6 @@ async function scrapeWebsite() {
 }
 
 
+scrapeWebsite();
 
-module.exports = scrapeWebsite;
+// module.exports = scrapeWebsite;

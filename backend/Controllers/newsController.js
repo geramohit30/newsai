@@ -1,5 +1,6 @@
 const News = require('../Models/newsModel');
-const Headings = require('../Models/headingModel')
+const mongoose = require('mongoose');
+const ObjectId = mongoose.Types.ObjectId;
 exports.getNews = async (req, res) => {
     try {
         const { categories } = req.query;
@@ -9,9 +10,9 @@ exports.getNews = async (req, res) => {
         if (categories) {
           const categoryArray = categories.split(",").map(cat => cat.trim());
           query = {approved: true , categories: { $in: categoryArray } };
-          newsList = await News.find(query,{heading: 1,"image.url": 1,approved: 1,article_id: 1,categories:1}).sort({ createdAt: -1 });
+          newsList = await News.find(query,{heading: 1,"image.url": 1,approved: 1,feedId: 1,categories:1}).sort({ createdAt: -1 });
         }
-        else{ newsList = await News.find({ approved: true },{heading: 1,"image.url": 1,approved: 1,article_id: 1,categories:1});}
+        else{ newsList = await News.find({ approved: true },{heading: 1,"image.url": 1,approved: 1,feedId: 1,categories:1});}
         res.status(200).json({"success":true, "data":newsList});
     } catch (error) {
         res.status(500).json({ message: "Error fetching approved news", error: error.message });
@@ -22,7 +23,7 @@ exports.getNewsById = async (req, res) => {
     try {
         console.log("Finding the ID : ", req.params.id);
         
-        const newsItem = await News.find({"article_id":req.params.id, "approved": true })
+        const newsItem = await News.find({"feedId":req.params.id, "approved": true })
         if (!newsItem) return res.status(404).json({ message: "News not found" });
 
         res.json({"success":true, "data":newsItem});
@@ -44,9 +45,11 @@ exports.getPendingNews = async (req, res) => {
 exports.approveNewsById = async (req, res) => {
     try {
         const articleId = req.params.id;
-        console.log("Finding the article_id:", articleId);
-
-        const newsItem = await News.findOne({ article_id: articleId });
+        const {selectedImageUrl} = req.body;
+        console.log("Finding the feedId:", articleId);
+        console.log("Getting image:", selectedImageUrl);
+        const newsItem =  await News.findOne({ feedId: new ObjectId(articleId) });
+        console.log("Got : ", newsItem)
         if (!newsItem) {
             return res.status(404).json({ message: "News not found" });
         }
@@ -56,6 +59,7 @@ exports.approveNewsById = async (req, res) => {
         }
 
         newsItem.approved = true;
+        newsItem.image = selectedImageUrl;
         await newsItem.save();
 
         res.status(200).json({ message: "News approved successfully", data: newsItem });

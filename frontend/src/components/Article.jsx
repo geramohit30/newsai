@@ -1,18 +1,102 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 
-const NewsCard = ({ article }) => (
-    <div className="flex justify-center items-center min-h-screen bg-gray-200 h-25 p-4">
-    <div className="max-w-3xl bg-white rounded-2xl shadow-lg overflow-hidden p-6">
-      <h1 className="text-2xl font-bold text-gray-800 mb-4">{article.heading}</h1>
-      <img
-        src={article.image.url}
-        alt={article.image.description}
-        className="w-full h-64 object-cover rounded-lg shadow-md"
-      />
-      <p className="text-gray-700 mt-4 leading-relaxed">{article.data}</p>
-      <h3 className="mt-6 text-sm text-gray-500 font-semibold">Keywords: {article.keywords.join(", ")}</h3>
+const Article = ({ article, onApprove, onReject, isPreview = false }) => {
+  const [selectedImage, setSelectedImage] = useState(article.image);
+  const [isApproved, setIsApproved] = useState(article.approved);
+
+  useEffect(() => {
+    setSelectedImage(article.image);
+    setIsApproved(article.approved);
+  }, [article]);
+
+  const handleApproveClick = async () => {
+    if (!selectedImage) {
+      alert("Please select an image before approving.");
+      return;
+    }
+    await onApprove(article.feedId, selectedImage);
+    setIsApproved(true);
+  };
+
+  return (
+    <div style={{ padding: "20px", border: "1px solid #ccc", marginBottom: "20px", borderRadius: "8px" }}>
+      <h2>{article.heading}</h2>
+      <p>{article.data}</p>
+
+      <div style={{ margin: "15px 0" }}>
+        <strong>Selected Image:</strong>
+        <img
+          src={selectedImage}
+          alt="Selected"
+          style={{
+            width: "100%",
+            maxHeight: "300px",
+            objectFit: "cover",
+            border: "2px solid black",
+            marginBottom: "10px",
+            borderRadius: "6px"
+          }}
+        />
+      </div>
+
+      {!isPreview && !isApproved && (
+        <>
+          <h4>Select Image:</h4>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            {article.images.map((img, index) => (
+              <img
+                key={index}
+                src={img.url}
+                alt={`img-${index}`}
+                style={{
+                  width: "150px",
+                  height: "100px",
+                  objectFit: "cover",
+                  cursor: "pointer",
+                  border: selectedImage === img.url ? "3px solid green" : "1px solid gray",
+                  borderRadius: "6px"
+                }}
+                onClick={() => setSelectedImage(img.url)}
+              />
+            ))}
+          </div>
+          <div style={{ marginTop: "15px" }}>
+            <button
+              onClick={handleApproveClick}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: "green",
+                color: "white",
+                border: "none",
+                cursor: "pointer",
+                marginRight: "10px"
+              }}
+            >
+              ✅ Approve
+            </button>
+            {onReject && (
+              <button
+                onClick={() => onReject(article._id)}
+                style={{
+                  padding: "10px 20px",
+                  backgroundColor: "red",
+                  color: "white",
+                  border: "none",
+                  cursor: "pointer"
+                }}
+              >
+                ❌ Reject
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {isApproved && !isPreview && (
+        <p style={{ color: "green", marginTop: "20px" }}>✅ This article has been approved.</p>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
-export default NewsCard;
+export default Article;

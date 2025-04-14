@@ -3,7 +3,7 @@ const axios = require('axios');
 const https = require('https');
 const { XMLParser } = require('fast-xml-parser');
 const connect = require('../Utils/mongo_utils');
-const Headings = require('../Models/headingModel');
+const Rssfeed = require('../Models/rssfeedModel');
 const parser = new XMLParser();
 const URLS = process.env.SCRAPPING_URLS ? process.env.SCRAPPING_URLS.split(',') : [];
 
@@ -29,7 +29,7 @@ async function scrapheadings(url) {
                 }));
 
             if (formattedItems.length > 0) {
-                await Headings.insertMany(formattedItems);
+                await Rssfeed.insertMany(formattedItems);
                 console.log(`Successfully inserted ${formattedItems.length} headings from ${url}`);
             } else {
                 console.log(`No valid headings found in ${url}`);
