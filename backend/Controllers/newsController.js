@@ -4,15 +4,40 @@ const ObjectId = mongoose.Types.ObjectId;
 exports.getNews = async (req, res) => {
     try {
         const { categories } = req.query;
-        let newsList = {};
-    
-        let query = {};
+        let newsList = [];
+        
+        let matchedQuery = { approved: true };
         if (categories) {
           const categoryArray = categories.split(",").map(cat => cat.trim());
-          query = {approved: true , categories: { $in: categoryArray } };
-          newsList = await News.find(query,{heading: 1,"image.url": 1,approved: 1,feedId: 1,categories:1}).sort({ createdAt: -1 });
+          matchedQuery.categories = { $in: categoryArray };
+        
+          const matchingNews = await News.find(matchedQuery, {
+            heading: 1,image: 1,approved: 1,feedId: 1,categories:1, data:1, createdAt:1, keywords:1 
+          }).sort({ createdAt: -1 }).limit(15);
+        
+          const matchedIds = matchingNews.map(item => item._id);
+        
+          const remainingCount = 15 - matchingNews.length;
+          let fillerNews = [];
+        
+          if (remainingCount > 0) {
+            fillerNews = await News.aggregate([
+              { $match: { approved: true, _id: { $nin: matchedIds } } },
+              { $sample: { size: remainingCount } },
+              { $project: { heading: 1,image: 1,approved: 1,feedId: 1,categories:1, data:1, createdAt:1, keywords:1 } }
+            ]);
+          }
+        
+          newsList = [...matchingNews, ...fillerNews];
+        } else {
+
+          newsList = await News.aggregate([
+            { $match: { approved: true } },
+            { $sample: { size: 15 } },
+            { $project: { heading: 1, image: 1, approved: 1, feedId: 1, categories: 1, data: 1, createdAt: 1, keywords: 1 } }
+          ]);
         }
-        else{ newsList = await News.find({ approved: true },{heading: 1,"image.url": 1,approved: 1,feedId: 1,categories:1});}
+
         res.status(200).json({"success":true, "data":newsList});
     } catch (error) {
         res.status(500).json({ message: "Error fetching approved news", error: error.message });
