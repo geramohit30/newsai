@@ -8,7 +8,7 @@ exports.getNews = async (req, res) => {
         
         let matchedQuery = { approved: true };
         if (categories) {
-          const categoryArray = categories.split(",").map(cat => cat.trim());
+          const categoryArray = categories.split(",").map(cat => new RegExp(`^${cat.trim()}$`, 'i'));
           matchedQuery.categories = { $in: categoryArray };
         
           const matchingNews = await News.find(matchedQuery, {
