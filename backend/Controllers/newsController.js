@@ -1,48 +1,71 @@
 const News = require('../Models/newsModel');
 const mongoose = require('mongoose');
+const firebaseConfig = require('../Config/FirebaseConfig')
+const {fetchFirebaseConfig, clearFirebaseConfigCache}  = require('../Config/FirebaseLimitConfig');
 const ObjectId = mongoose.Types.ObjectId;
+
 exports.getNews = async (req, res) => {
     try {
-        const { categories } = req.query;
-        let newsList = [];
-        
-        let matchedQuery = { approved: true };
-        if (categories) {
-          const categoryArray = categories.split(",").map(cat => new RegExp(`^${cat.trim()}$`, 'i'));
-          matchedQuery.categories = { $in: categoryArray };
-        
-          const matchingNews = await News.find(matchedQuery, {
-            heading: 1,image: 1,approved: 1,feedId: 1,categories:1, data:1, createdAt:1, keywords:1 
-          }).sort({ createdAt: -1 }).limit(15);
-        
-          const matchedIds = matchingNews.map(item => item._id);
-        
-          const remainingCount = 15 - matchingNews.length;
-          let fillerNews = [];
-        
-          if (remainingCount > 0) {
-            fillerNews = await News.aggregate([
-              { $match: { approved: true, _id: { $nin: matchedIds } } },
-              { $sample: { size: remainingCount } },
-              { $project: { heading: 1,image: 1,approved: 1,feedId: 1,categories:1, data:1, createdAt:1, keywords:1 } }
-            ]);
-          }
-        
-          newsList = [...matchingNews, ...fillerNews];
-        } else {
-
-          newsList = await News.aggregate([
-            { $match: { approved: true } },
-            { $sample: { size: 15 } },
-            { $project: { heading: 1, image: 1, approved: 1, feedId: 1, categories: 1, data: 1, createdAt: 1, keywords: 1 } }
-          ]);
-        }
-
-        res.status(200).json({"success":true, "data":newsList});
+      const config = await fetchFirebaseConfig();
+      const newsLimit = parseInt(config.news_limit) || 15;
+  
+      const { categories } = req.query;
+  
+      const projection = {
+        heading: 1,
+        image: 1,
+        approved: 1,
+        feedId: 1,
+        categories: 1,
+        data: 1,
+        createdAt: 1,
+        publishedAt: 1,
+        keywords: 1
+      };
+      const baseMatch = { approved: true };
+      let newsList = [];
+      if (categories) {
+        const categoryArray = categories.split(',').map(cat => cat.trim());
+        const matchedNews = await News.find(
+          {
+            ...baseMatch,
+            categories: { $in: categoryArray }
+          },
+          projection
+        )
+          .sort({ publishedAt: -1 })
+          .limit(newsLimit)
+          .lean();
+  
+        const matchedIds = matchedNews.map(news => news._id);
+        const remainingCount = newsLimit - matchedNews.length;
+  
+        let fillerNews = [];
+  
+          fillerNews = await News.find(
+            {
+              ...baseMatch,
+              _id: { $nin: matchedIds },
+              categories: { $nin: categoryArray }
+            },
+            projection
+          )
+            .sort({ publishedAt: -1 })
+            .lean();
+  
+        newsList = [...matchedNews, ...fillerNews];
+      } else {
+        newsList = await News.find(baseMatch, projection)
+          .sort({ publishedAt: -1 })
+          .lean();
+      }
+  
+      res.status(200).json({ success: true, data: newsList });
     } catch (error) {
-        res.status(500).json({ message: "Error fetching approved news", error: error.message });
+      console.error("Error fetching approved news:", error);
+      res.status(500).json({ message: "Error fetching approved news", error: error.message });
     }
-};
+  };
 
 exports.getNewsById = async (req, res) => {
     try {
@@ -56,7 +79,6 @@ exports.getNewsById = async (req, res) => {
         res.status(500).json({ message: "Error fetching news", error: error.message });
     }
 };
-
 
 exports.getPendingNews = async (req, res) => {
     try {
@@ -95,19 +117,28 @@ exports.approveNewsById = async (req, res) => {
 };
 
 exports.getCategories = async (req, res) => {
+    let default_keyword = [
+        "Firing", "Murder", "Arrest", "Custody", "Attack", "Violence", "Riot", "Crime",
+        "Government", "Policy", "Election", "MP", "MLA", "Parliament", "Bill", "Ministry",
+        "Supreme Court", "High Court", "CBI", "NIA", "Judgment", "Petition", "Verdict", "SC",
+        "Google", "Microsoft", "OpenAI", "Apple", "AI", "Tech", "Gadget", "Innovation", "Software", "App",
+        "Cricket", "IPL", "World Cup", "Olympics", "Football", "Goal", "Wicket", "Player",
+        "Stock", "Market", "IPO", "Investment", "Finance", "Shares", "Startup", "Economy", "SREI",
+        "Movie", "Bollywood", "Actor", "Actress", "TV", "Netflix", "Cinema", "Music", "OTT", "Theatre",
+        "Nagpur", "Delhi", "Mumbai", "Kolkata", "Chennai", "Hyderabad", "Maharashtra", "Tamil Nadu", "Punjab", "Gujarat"
+      ];
     try {
-        const keywords = [
-            "Firing", "Murder", "Arrest", "Custody", "Attack", "Violence", "Riot", "Crime",
-            "Government", "Policy", "Election", "MP", "MLA", "Parliament", "Bill", "Ministry",
-            "Supreme Court", "High Court", "CBI", "NIA", "Judgment", "Petition", "Verdict", "SC",
-            "Google", "Microsoft", "OpenAI", "Apple", "AI", "Tech", "Gadget", "Innovation", "Software", "App",
-            "Cricket", "IPL", "World Cup", "Olympics", "Football", "Goal", "Wicket", "Player",
-            "Stock", "Market", "IPO", "Investment", "Finance", "Shares", "Startup", "Economy", "SREI",
-            "Movie", "Bollywood", "Actor", "Actress", "TV", "Netflix", "Cinema", "Music", "OTT", "Theatre",
-            "Nagpur", "Delhi", "Mumbai", "Kolkata", "Chennai", "Hyderabad", "Maharashtra", "Tamil Nadu", "Punjab", "Gujarat"
-        ];
-        res.status(200).json({ success: true, keywords });
-      } catch (err) {
-        res.status(500).json({ error: "Failed to fetch news", details: err.message });
+      const config = await fetchFirebaseConfig();
+      let keywords = config?.categories || null;
+      keywords = JSON.parse(keywords)
+      if (!keywords || !Array.isArray(keywords)) {
+       keywords = default_keyword
       }
-}
+      return res.status(200).json({ success: true, keywords });
+      
+    } catch (err) {
+        keywords = default_keyword
+        return res.status(200).json({ success: true, keywords });
+    }
+  };
+  

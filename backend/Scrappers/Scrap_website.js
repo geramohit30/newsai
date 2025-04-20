@@ -6,11 +6,14 @@ const mongoose = require('mongoose');
 const connectDB = require('../Utils/mongo_utils');
 const summarizeText = require('../Summarize/hugging_face');
 const nlp = require('../Summarize/nlp')
+const nlp2 = require('../Summarize/nlp2')
+const {fetchFirebaseConfig, clearFirebaseConfigCache}  = require('../Config/FirebaseLimitConfig');
 const News = require('../Models/newsModel');
 const Rssfeed = require('../Models/rssfeedModel');
 const getCategoryFromKeywords = require('../Summarize/category');
 const getImages = require('./Img_scrapper')
-
+const { URL } = require('url');
+const firebaseConfig = require('../Config/FirebaseConfig')
 
 const UNWANTED_PHRASES = [
     "click here", 
@@ -34,49 +37,77 @@ function cleanText(text) {
     return cleanedText;
 }
 
-async function summarize_data(data, image, keywords, heading, heading_id) {
+async function summarize_data(data, image, keywords, heading, heading_id, author = null, publishedAt = null, category = null) {
     if (!data) {
         console.log('The data value is:', data);
-        await Rssfeed.updateOne(
-            { _id: heading_id },
-            { $set: { success: false } }
-        );
+        await Rssfeed.updateOne({ _id: heading_id }, { $set: { success: false } });
         return;
     }
-
-    const summ_text = await nlp(data);
-    if (!summ_text) {
-        console.log('Got empty result');
-        return;
-    }
-
-    const category = getCategoryFromKeywords(keywords);
-    
-    let head;
+    const config = await fetchFirebaseConfig();
+    let summ_text, images, head, source, auto_approve;
+    auto_approve = config && config.auto_approve?config.auto_approve:false;
     try {
-        head = cleanText(heading);
-    } catch (error) {
-        console.log('Error while getting clean heading', error);
+        const feed = await Rssfeed.findById(heading_id);
+
+        if (!feed || !feed.link) {
+            console.log(`No URL found for feed with ID ${heading_id}`);
+            return;
+        }
+
+        source = new URL(feed.link[0]).hostname.split('.').slice(-2, -1)[0].trim();
+
+        [summ_text, images] = await Promise.all([
+            nlp2(data, 2),
+            getImages(keywords, 5)
+        ]);
+
+        if (!summ_text) {
+            console.log('Got empty summarization result');
+            return;
+        }
+        summ_text = summ_text.replace(/^["',\s]+/, '');
+
+        const words = summ_text.trim().split(/\s+/);
+        if (words.length > 90) {
+            summ_text = words.slice(0, 90).join(' ') + '... read more';
+        }
+
+        try {
+            head = cleanText(heading);
+        } catch (error) {
+            console.log('Error while cleaning heading:', error);
+            head = heading;
+        }
+
+        let getCategory = getCategoryFromKeywords(keywords);
+        if (getCategory.length === 1 && getCategory[0] === "Uncategorized") {
+            getCategory = [];
+        }
+        const uniqueCategories = [...new Set([category, ...getCategory].filter(Boolean))];
+
+        await News.create({
+            heading: head,
+            approved: auto_approve?auto_approve:false,
+            keywords,
+            data: summ_text,
+            image: image?.url || "",
+            images,
+            feedId: heading_id,
+            categories: uniqueCategories,
+            source,
+            sourceUrl: feed.link[0].trim(),
+            publishedAt
+        });
+
+        await Rssfeed.updateOne({ _id: heading_id }, { $set: { success: true } });
+
+    } catch (err) {
+        console.error('Error during summarize_data:', err);
+        await Rssfeed.updateOne({ _id: heading_id }, { $set: { success: false} });
     }
-
-    const images = await getImages(keywords, 5);
-
-    await News.create({
-        heading: head ? head : heading,
-        keywords,
-        data: summ_text,
-        image: image ? image.url : "",
-        images: images,
-        feedId: heading_id,
-        categories: category
-    });
-
-    await Rssfeed.updateOne(
-        { _id: heading_id },
-        { $set: { success: true } }
-    );
-
 }
+
+
 async function data_update(url, heading_id) {
     console.log('Processing URL:', url[0]);
 
@@ -93,8 +124,7 @@ async function data_update(url, heading_id) {
                 jsonText = jsonText.replace(/[\u0000-\u001F]+/g, "");
                 const parsedata = JSON.parse(jsonText);
                 if (parsedata['@type'] === "NewsArticle" && parsedata['headline']) {
-                    // console.log(parsedata['articleBody'])
-                    summarize_data(parsedata['articleBody'], parsedata['image'], parsedata['keywords'], parsedata['headline'], heading_id);
+                    summarize_data(parsedata['articleBody'], parsedata['image'], parsedata['keywords'], parsedata['headline'], heading_id, null, parsedata['datePublished'],parsedata['articleSection']);
                 }
             } catch (error) {
                 console.log('Error in article scraping:', error.message);
@@ -110,7 +140,6 @@ async function scrapeWebsite() {
         if (mongoose.connection.readyState !== 1) {
             console.error("MongoDB not connected.");
             await connectDB();
-            // return;
         }
 
         const all_data = await Rssfeed.find().lean();
@@ -136,7 +165,4 @@ async function scrapeWebsite() {
     }
 }
 
-
-scrapeWebsite();
-
-// module.exports = scrapeWebsite;
+module.exports = scrapeWebsite;

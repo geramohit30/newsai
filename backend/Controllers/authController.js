@@ -2,11 +2,7 @@ require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../Models/userModel');
-const admin = require("firebase-admin");
-
-admin.initializeApp({
-    credential: admin.credential.cert(require("../serviceAccountKey.json"))
-  });
+const admin = require('../Config/FirebaseAdmin');
 
 exports.registerUser = async (req, res) => {
     const { username, password, phone } = req.body;
@@ -97,18 +93,46 @@ exports.loginUser = async (req, res) => {
 };
 
 exports.adminLogin = async (req, res) => {
-    const { username, password } = req.body;
+  const { username, password } = req.body;
 
-    if (username !== process.env.ADMIN_USERNAME) {
-        return res.status(401).json({ message: 'Invalid credentials' });
+  try {
+      const user = await User.findOne({ username });
+      if (!user || user.role !== 'admin') {
+          return res.status(401).json({ message: 'Invalid credentials' });
+      }
+
+      const isValid = bcrypt.compareSync(password, user.password);
+      if (!isValid) {
+          return res.status(401).json({ message: 'Invalid credentials' });
+      }
+
+      const token = jwt.sign(
+          { id: user._id, username: user.username, role: user.role },
+          process.env.JWT_SECRET,
+          { expiresIn: '2h' }
+      );
+
+      return res.json({ token });
+
+  } catch (error) {
+      console.error('Admin login error:', error);
+      return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.userData = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
-
-    const isValid = bcrypt.compareSync(password, process.env.ADMIN_PASSWORD_HASH);
-    if (!isValid) {
-        return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    const token = jwt.sign({ username, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '2h' });
-
-    res.json({ token });
+    return res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Error fetching user details', error: err.message });
+  }
 };

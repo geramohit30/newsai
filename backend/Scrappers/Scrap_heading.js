@@ -2,7 +2,8 @@ require('dotenv').config();
 const axios = require('axios');
 const https = require('https');
 const { XMLParser } = require('fast-xml-parser');
-const connect = require('../Utils/mongo_utils');
+const mongoose = require('mongoose');
+const connectDB = require('../Utils/mongo_utils');
 const Rssfeed = require('../Models/rssfeedModel');
 const parser = new XMLParser();
 const URLS = process.env.SCRAPPING_URLS ? process.env.SCRAPPING_URLS.split(',') : [];
@@ -41,7 +42,11 @@ async function scrapheadings(url) {
 
 async function runScraping() {
     console.log('Starting heading scraping...', URLS);
-    
+    if (mongoose.connection.readyState !== 1) {
+        console.error("MongoDB not connected.");
+        await connectDB();
+        // return;
+    }
     for (const url of URLS) {
         console.log(`Scraping: ${url}`);
         await scrapheadings(url);
@@ -50,5 +55,4 @@ async function runScraping() {
     console.log('Heading scraping completed!');
 }
 
-// runScraping()
 module.exports = runScraping;

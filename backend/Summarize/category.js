@@ -10,11 +10,16 @@ const categoryKeywords = {
   };
   
   function getCategoriesFromKeywords(keywordsStr) {
-    if(!keywordsStr){
-      return ["Uncategorized"]
-    }
-    const keywords = keywordsStr.toLowerCase().split(',').map(k => k.trim());
-    const matchedCategories = [];
+    if (!keywordsStr || (Array.isArray(keywordsStr) && keywordsStr.length === 0)) {
+      return ["Uncategorized"];
+  }
+
+  // Normalize to array of strings
+  const keywords = Array.isArray(keywordsStr)
+      ? keywordsStr.map(k => k.toLowerCase().trim())
+      : keywordsStr.toLowerCase().split(',').map(k => k.trim());
+
+  const matchedCategories = [];
   
     for (const [category, words] of Object.entries(categoryKeywords)) {
       const hasMatch = words.some(word =>
