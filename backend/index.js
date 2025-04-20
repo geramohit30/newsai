@@ -5,6 +5,7 @@ const connectDB = require('./Utils/mongo_utils');
 const { clearFirebaseConfigCache } = require('./Config/FirebaseLimitConfig');
 const newsRoutes = require('./Routes/newsRoute');
 const authRoutes = require('./Routes/authRoute');
+const userRoutes = require('./Routes/userRoutes')
 const scrapingRoutes = require('./Routes/scrapingRoutes');
 
 const app = express();
@@ -18,6 +19,7 @@ setInterval(() => {
     clearFirebaseConfigCache();
   }, 15 * 60 * 1000);
 
+app.use('/user', userRoutes)
 app.use('/api', newsRoutes);
 app.use('/scrapper', scrapingRoutes)
 app.use('/api/auth', authRoutes);
