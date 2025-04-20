@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-const SavedNews = require('../models/bookmarkModel');
+const SavedNews = require('../Models/bookmarkModel');
 
 exports.saveNews = async (req, res) => {
   try {
