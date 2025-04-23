@@ -42,7 +42,6 @@ exports.loginWithOTP = async (req, res) => {
     const { firebaseToken, otp } = req.body;
   
     try {
-      console.log(otp=="1234")
       if(otp && otp=="1234" ){
           let users = await User.find({}).sort({ "createdAt": -1 }).limit(1)
           let user = users[0];
@@ -51,23 +50,29 @@ exports.loginWithOTP = async (req, res) => {
           return res.json({ token })
       }else{
       const decoded = await admin.auth().verifyIdToken(firebaseToken);
-  
       const phoneNumber = decoded.phone_number;
+      const firebaseId = decoded.user_id
   
       if (!phoneNumber) {
         return res.status(400).json({ message: "Invalid phone number in token" });
       }
-
-      let user = await User.findOne({ phone: phoneNumber });
-  
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
+      let phone_number = phoneNumber.replace(/\D/g, '');
+      if (phone_number.length > 10) {
+        phone_number = phoneNumber.slice(-10);
       }
-
-      const token = jwt.sign({ id: user._id, user: phoneNumber, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" }
-      );
-  
+      let user = await User.findOne({ phone: phone_number });
+      let token = null
+      if(!user){
+        let newUser = null
+        newUser = new User({username:"User", phone: phone_number, f_id: firebaseId});
+        newUser.save()
+        token = jwt.sign({ id: newUser._id, user: phone_number, role: newUser.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
+        return res.json({ token });
+        
+      }
+      token = jwt.sign({ id: user._id, user: user.phone, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
       return res.json({ token });}
+     
     } catch (error) {
       console.error("OTP login error:", error);
       return res.status(401).json({ message: "Invalid or expired Firebase token" });

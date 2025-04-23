@@ -28,6 +28,10 @@ const userSchema = new mongoose.Schema({
     type: String, 
     enum: ["user", "admin"], 
     default: "user" 
+  },
+  f_id: {
+    type: String, 
+    required: false, 
   }
 }, { 
   timestamps: true 
