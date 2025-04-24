@@ -42,8 +42,8 @@ exports.unsaveNews = async (req, res) => {
   exports.getSavedNews = async (req, res) => {
     try {
       const userId = req.user.id;
-      const savedNews = await SavedNews.find({ user: userId }).sort({ savedAt: -1 });
-  
+      const savedNews = await SavedNews.find({ user: userId }).populate('news','heading image approved feedId categories data createdAt publishedAt keywords').sort({ savedAt: -1 });
+      
       if (savedNews.length === 0) {
         return res.status(404).json({ success: false, message: 'No saved news found' });
       }
