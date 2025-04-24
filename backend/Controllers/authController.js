@@ -141,3 +141,48 @@ exports.userData = async (req, res) => {
     return res.status(500).json({ message: 'Error fetching user details', error: err.message });
   }
 };
+
+exports.userUpdate = async (req, res) => {
+  try {
+    const { firebaseToken, username, password , email} = req.body;
+
+    const decoded = await admin.auth().verifyIdToken(firebaseToken);
+  const firebase_number = decoded.phone_number;
+  const user = await User.findOne({ phone: firebase_number });
+
+  if (!user) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+
+  if (username) {
+    user.username = username;
+  }
+
+  if (password) {
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    user.password = hashedPassword;
+  }
+
+  if (email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+    user.email = email;
+  }
+  await user.save();
+
+  return res.status(200).json({ message: 'User updated successfully', user: {
+    username: user.username,
+    phone: user.phone,
+    role: user.role,
+  }});
+    
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Error fetching user details', error: err.message });
+  }
+};

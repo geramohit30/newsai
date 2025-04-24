@@ -11,6 +11,11 @@ const userSchema = new mongoose.Schema({
     match: [/^[a-zA-Z0-9_.-]+$/, 'Username can only contain letters, numbers, underscores, dots, and hyphens'],
     index: true
   },
+  email:{
+    type: String,
+    trim: true,
+    index: true
+  },
   password: { 
     type: String, 
     required: [false, 'Password is required'], 
