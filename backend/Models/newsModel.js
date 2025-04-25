@@ -42,6 +42,10 @@ const newsSchema = new mongoose.Schema({
   categories: { 
     type: [String], 
     default: [] 
+  },
+  isSaved : {
+    type:Boolean,
+    default: false
   }
 }, { 
   timestamps: true 

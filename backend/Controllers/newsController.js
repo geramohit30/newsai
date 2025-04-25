@@ -20,7 +20,8 @@ exports.getNews = async (req, res) => {
         data: 1,
         createdAt: 1,
         publishedAt: 1,
-        keywords: 1
+        keywords: 1,
+        isSaved: 1
       };
       const baseMatch = { approved: true };
       let newsList = [];

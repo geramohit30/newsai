@@ -8,5 +8,6 @@ router.post('/login/otp', authController.loginWithOTP);
 router.post('/login', authController.loginUser);
 router.get('/user', authMiddleware, authController.userData);
 router.post('/user/update', authMiddleware, authController.userUpdate);
+router.post('/user/refresh_token',authMiddleware, authController.refreshToken);
 
 module.exports = router;

@@ -46,8 +46,9 @@ exports.loginWithOTP = async (req, res) => {
           let users = await User.find({}).sort({ "createdAt": -1 }).limit(1)
           let user = users[0];
           
-          const token = jwt.sign({ id: user._id, user: user.phone, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" })
-          return res.json({ token })
+          const token = jwt.sign({ id: user._id, user: user.phone, role: user.role }, process.env.JWT_SECRET, { expiresIn: "3h" })
+          const refreshToken = jwt.sign({ id: user._id },process.env.REFRESH_TOKEN_SECRET,{ expiresIn: '7d' });
+          return res.json({ token: token, refresh_token : refreshToken });
       }else{
       const decoded = await admin.auth().verifyIdToken(firebaseToken);
       const phoneNumber = decoded.phone_number;
@@ -62,16 +63,19 @@ exports.loginWithOTP = async (req, res) => {
       }
       let user = await User.findOne({ phone: phone_number });
       let token = null
+      let refreshToken = null;
       if(!user){
         let newUser = null
         newUser = new User({username:"User", phone: phone_number, f_id: firebaseId});
         newUser.save()
-        token = jwt.sign({ id: newUser._id, user: phone_number, role: newUser.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
-        return res.json({ token });
+        token = jwt.sign({ id: newUser._id, user: phone_number, role: newUser.role }, process.env.JWT_SECRET, { expiresIn: "3h" });
+        refreshToken = jwt.sign({ id: newUser._id },process.env.REFRESH_TOKEN_SECRET,{ expiresIn: '7d' });
+        return res.json({ token: token, refresh_token: refreshToken });
         
       }
-      token = jwt.sign({ id: user._id, user: user.phone, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
-      return res.json({ token });}
+      token = jwt.sign({ id: user._id, user: user.phone, role: user.role }, process.env.JWT_SECRET, { expiresIn: "3h" });
+      refreshToken = jwt.sign({ id: user._id },process.env.REFRESH_TOKEN_SECRET,{ expiresIn: '7d' });
+      return res.json({ token : token, refresh_token : refreshToken });}
      
     } catch (error) {
       console.error("OTP login error:", error);
@@ -91,7 +95,12 @@ exports.loginUser = async (req, res) => {
         if (!isMatch) return res.status(400).json({ message: "Invalid username or password" });
 
         const token = jwt.sign({ id: user._id, user: username, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
-        res.json({ token });
+        const refreshToken = jwt.sign(
+          { id: user._id },
+          process.env.REFRESH_TOKEN_SECRET,
+          { expiresIn: '7d' }
+        );
+        res.json({ 'token' : token, 'refresh_token' : refreshToken });
     } catch (error) {
         res.status(500).json({ message: "Login failed", error: error.message });
     }
@@ -186,3 +195,22 @@ exports.userUpdate = async (req, res) => {
     return res.status(500).json({ message: 'Error fetching user details', error: err.message });
   }
 };
+
+exports.refreshToken = async (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(400).json({ message: 'Refresh token is required' });
+  }
+
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    const user = await User.findOne({_id : decoded.id})
+    const newAccessToken = jwt.sign({ id: user._id, user: user.phone, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+    return res.json({ accessToken: newAccessToken });
+  } catch (err) {
+    console.log(err)
+    return res.status(401).json({ message: 'Invalid or expired refresh token' });
+  }
+}
