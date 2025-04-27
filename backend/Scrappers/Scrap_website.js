@@ -42,7 +42,7 @@ async function isSimilarArticle(newText, threshold = 0.9) {
     const recentNews = await News.find(
         { publishedAt: { $gte: thirtyDaysAgo } }, 
         { data: 1 }
-    ).lean();
+    ).sort({ createdAt: -1 }).lean();
 
     for (const article of recentNews) {
         const similarity = stringSimilarity.compareTwoStrings(newText, article.data);
@@ -182,7 +182,7 @@ async function scrapeWebsite() {
             await connectDB();
         }
 
-        const all_data = await Rssfeed.find().lean();
+        const all_data = await Rssfeed.find({success:false}).sort({ createdAt: -1 }).lean();
 
         if (!all_data.length) {
             console.log("No headings found in the database.");
