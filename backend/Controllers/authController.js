@@ -155,9 +155,13 @@ exports.userUpdate = async (req, res) => {
   try {
     const { firebaseToken, username, password , email} = req.body;
 
-    const decoded = await admin.auth().verifyIdToken(firebaseToken);
+  const decoded = await admin.auth().verifyIdToken(firebaseToken);
   const firebase_number = decoded.phone_number;
-  const user = await User.findOne({ phone: firebase_number });
+  let phone_number = firebase_number.replace(/\D/g, '');
+      if (phone_number.length > 10) {
+        phone_number = firebase_number.slice(-10);
+      }
+  const user = await User.findOne({ phone: phone_number });
 
   if (!user) {
     return res.status(404).json({ message: 'User not found' });
