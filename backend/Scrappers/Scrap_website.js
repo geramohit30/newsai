@@ -14,6 +14,9 @@ const getCategoryFromKeywords = require('../Summarize/category');
 const getImages = require('./Img_scrapper')
 const { URL } = require('url');
 const firebaseConfig = require('../Config/FirebaseConfig')
+const crypto = require('crypto');
+const stringSimilarity = require('string-similarity');
+
 
 const UNWANTED_PHRASES = [
     "click here", 
@@ -26,6 +29,30 @@ const UNWANTED_PHRASES = [
     "limited time offer",
     "new offer"
 ];
+
+function generateHeadingHash(heading) {
+    const cleanedHeading = cleanText(heading || "");
+    return crypto.createHash('sha256').update(cleanedHeading).digest('hex');
+}
+
+async function isSimilarArticle(newText, threshold = 0.9) {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const recentNews = await News.find(
+        { publishedAt: { $gte: thirtyDaysAgo } }, 
+        { data: 1 }
+    ).lean();
+
+    for (const article of recentNews) {
+        const similarity = stringSimilarity.compareTwoStrings(newText, article.data);
+        if (similarity > threshold) {
+            console.log(`Found similar article with similarity: ${similarity}`);
+            return true;
+        }
+    }
+    return false;
+}
 
 function cleanText(text) {
     let cleanedText = he.decode(text);
@@ -41,6 +68,12 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
     if (!data) {
         console.log('The data value is:', data);
         await Rssfeed.updateOne({ _id: heading_id }, { $set: { success: false } });
+        return;
+    }
+    const headingHash = generateHeadingHash(heading);
+    const existsByHeading = await News.findOne({ hash: headingHash });
+    if (existsByHeading) {
+        console.log('Duplicate found by heading hash, skipping...');
         return;
     }
     const config = await fetchFirebaseConfig();
@@ -79,6 +112,12 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
             head = heading;
         }
 
+        const isDuplicateByContent = await isSimilarArticle(summ_text);
+        if (isDuplicateByContent) {
+            console.log('Duplicate found by content similarity, skipping...');
+            return;
+        }
+
         let getCategory = getCategoryFromKeywords(keywords);
         if (getCategory.length === 1 && getCategory[0] === "Uncategorized") {
             getCategory = [];
@@ -96,7 +135,8 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
             categories: uniqueCategories,
             source,
             sourceUrl: feed.link[0].trim(),
-            publishedAt
+            publishedAt,
+            hash: headingHash
         });
 
         await Rssfeed.updateOne({ _id: heading_id }, { $set: { success: true } });
@@ -138,7 +178,7 @@ async function data_update(url, heading_id) {
 async function scrapeWebsite() {
     try {
         if (mongoose.connection.readyState !== 1) {
-            console.error("MongoDB not connected.");
+            console.log("MongoDB not connected.");
             await connectDB();
         }
 
@@ -148,14 +188,12 @@ async function scrapeWebsite() {
             console.log("No headings found in the database.");
             return;
         }
-
         for (const doc of all_data) {
             try{
             await new Promise(resolve => setTimeout(resolve, 1000));
             await data_update(doc.link, doc._id);
         }
         catch(err){
-            
             console.log('Error in data update', err.message, doc);
         }
         }
