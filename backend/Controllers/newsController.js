@@ -73,8 +73,21 @@ exports.getNews = async (req, res) => {
 exports.getNewsById = async (req, res) => {
     try {
         console.log("Finding the ID : ", req.params.id);
-        
-        const newsItem = await News.find({"_id":req.params.id, "approved": true })
+        const projection = {
+          heading: 1,
+          image: 1,
+          approved: 1,
+          feedId: 1,
+          categories: 1,
+          data: 1,
+          createdAt: 1,
+          publishedAt: 1,
+          keywords: 1,
+          isSaved: 1,
+          source: 1,
+          sourceUrl : 1
+        };
+        const newsItem = await News.find({"_id":req.params.id, "approved": true }, projection );
         if (!newsItem) return res.status(404).json({ message: "News not found" });
 
         res.json({"success":true, "data":newsItem});

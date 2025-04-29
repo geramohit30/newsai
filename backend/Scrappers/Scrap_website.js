@@ -123,6 +123,7 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
             getCategory = [];
         }
         const uniqueCategories = [...new Set([category, ...getCategory].filter(Boolean))];
+        source = source=="hindustantimes"?"Hindustan Times":source=="indiatoday"?"India Today":source;
 
         await News.create({
             heading: head,
