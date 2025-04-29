@@ -50,6 +50,15 @@ const newsSchema = new mongoose.Schema({
   hash: { 
     type: String, 
     unique: true 
+  },
+  source : {
+    type: String
+  },
+  sourceUrl : {
+    type: String
+  },
+  publishedAt : {
+    type : Date
   }
 }, { 
   timestamps: true 

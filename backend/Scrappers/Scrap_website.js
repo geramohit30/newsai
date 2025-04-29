@@ -102,7 +102,7 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
 
         const words = summ_text.trim().split(/\s+/);
         if (words.length > 90) {
-            summ_text = words.slice(0, 90).join(' ') + '... read more';
+            summ_text = words.slice(0, 90).join(' ') + ".";
         }
 
         try {
