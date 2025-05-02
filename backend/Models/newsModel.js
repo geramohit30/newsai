@@ -59,6 +59,9 @@ const newsSchema = new mongoose.Schema({
   },
   publishedAt : {
     type : Date
+  },
+  gradient: {
+    type: [String]
   }
 }, { 
   timestamps: true 

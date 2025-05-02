@@ -2,73 +2,88 @@ const News = require('../Models/newsModel');
 const mongoose = require('mongoose');
 const firebaseConfig = require('../Config/FirebaseConfig')
 const {fetchFirebaseConfig, clearFirebaseConfigCache}  = require('../Config/FirebaseLimitConfig');
+const Pagination = require('../Utils/pagination_utils')
 const ObjectId = mongoose.Types.ObjectId;
 
 exports.getNews = async (req, res) => {
-    try {
-      const config = await fetchFirebaseConfig();
-      const newsLimit = parseInt(config.news_limit) || 15;
-  
-      const { categories } = req.query;
-  
-      const projection = {
-        heading: 1,
-        image: 1,
-        approved: 1,
-        feedId: 1,
-        categories: 1,
-        data: 1,
-        createdAt: 1,
-        publishedAt: 1,
-        keywords: 1,
-        isSaved: 1,
-        source: 1,
-        sourceUrl : 1
-      };
-      const baseMatch = { approved: true };
-      let newsList = [];
-      if (categories) {
-        const categoryArray = categories.split(',').map(cat => cat.trim());
-        const matchedNews = await News.find(
+  try {
+    const config = await fetchFirebaseConfig();
+    const defaultPageSize = parseInt(config.news_limit) || 15;
+
+    const {
+      categories,
+      page = 1,
+      pageSize = defaultPageSize
+    } = req.query;
+
+    const { skip, limit } = Pagination(page, pageSize);
+
+    const projection = {
+      heading: 1,
+      image: 1,
+      approved: 1,
+      feedId: 1,
+      categories: 1,
+      data: 1,
+      createdAt: 1,
+      publishedAt: 1,
+      keywords: 1,
+      isSaved: 1,
+      source: 1,
+      sourceUrl: 1
+    };
+
+    const baseMatch = { approved: true };
+    const sort = { publishedAt: -1, _id: -1 };
+    let newsList = [];
+
+    if (categories) {
+      const categoryArray = categories.split(',').map(cat => cat.trim());
+      const matchedNews = await News.find(
+        {
+          ...baseMatch,
+          categories: { $in: categoryArray }
+        },
+        projection
+      )
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean();
+
+      const matchedIds = matchedNews.map(news => news._id);
+      const remainingCount = limit - matchedNews.length;
+      let fillerNews = [];
+
+      if (remainingCount > 0) {
+        fillerNews = await News.find(
           {
             ...baseMatch,
-            categories: { $in: categoryArray }
+            _id: { $nin: matchedIds },
+            categories: { $nin: categoryArray }
           },
           projection
         )
-          .sort({ publishedAt: -1 })
-          .limit(newsLimit)
-          .lean();
-  
-        const matchedIds = matchedNews.map(news => news._id);
-        const remainingCount = newsLimit - matchedNews.length;
-  
-        let fillerNews = [];
-  
-          fillerNews = await News.find(
-            {
-              ...baseMatch,
-              _id: { $nin: matchedIds },
-              categories: { $nin: categoryArray }
-            },
-            projection
-          )
-            .sort({ publishedAt: -1 })
-            .lean();
-  
-        newsList = [...matchedNews, ...fillerNews];
-      } else {
-        newsList = await News.find(baseMatch, projection)
-          .sort({ publishedAt: -1 })
+          .sort(sort)
+          .limit(remainingCount)
           .lean();
       }
-  
-      res.status(200).json({ success: true, data: newsList });
-    } catch (error) {
-      console.error("Error fetching approved news:", error);
-      res.status(500).json({ message: "Error fetching approved news", error: error.message });
+
+      newsList = [...matchedNews, ...fillerNews];
+    } else {
+      newsList = await News.find(baseMatch, projection)
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .lean();
     }
-  };
+
+    res.status(200).json({ success: true, data: newsList });
+  } catch (error) {
+    console.error("Error fetching approved news:", error);
+    res.status(500).json({ message: "Error fetching approved news", error: error.message });
+  }
+};
 
 exports.getNewsById = async (req, res) => {
     try {

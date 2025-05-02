@@ -16,6 +16,7 @@ const { URL } = require('url');
 const firebaseConfig = require('../Config/FirebaseConfig')
 const crypto = require('crypto');
 const stringSimilarity = require('string-similarity');
+const imageGradient = require('../Utils/color_picker')
 
 
 const UNWANTED_PHRASES = [
@@ -124,6 +125,9 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
         }
         const uniqueCategories = [...new Set([category, ...getCategory].filter(Boolean))];
         source = source=="hindustantimes"?"Hindustan Times":source=="indiatoday"?"India Today":source;
+        const gradients = []
+        if(image?.url)
+            gradients = imageGradient(image?.url)
 
         await News.create({
             heading: head,
@@ -137,7 +141,8 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
             source,
             sourceUrl: feed.link[0].trim(),
             publishedAt,
-            hash: headingHash
+            hash: headingHash,
+            gradient: gradients
         });
 
         await Rssfeed.updateOne({ _id: heading_id }, { $set: { success: true } });
