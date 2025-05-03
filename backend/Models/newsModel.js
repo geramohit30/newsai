@@ -62,6 +62,10 @@ const newsSchema = new mongoose.Schema({
   },
   gradient: {
     type: [String]
+  },
+  isChatGpt:{
+    type:Boolean,
+    default: false
   }
 }, { 
   timestamps: true 

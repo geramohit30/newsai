@@ -17,7 +17,8 @@ const firebaseConfig = require('../Config/FirebaseConfig')
 const crypto = require('crypto');
 const stringSimilarity = require('string-similarity');
 const imageGradient = require('../Utils/color_picker')
-
+const ApiCall = require('../Models/chatgptModel')
+const chatWithGPT4Mini = require('../Utils/chatgpt_utils')
 
 const UNWANTED_PHRASES = [
     "click here", 
@@ -65,6 +66,31 @@ function cleanText(text) {
     return cleanedText;
 }
 
+async function canMakeChatGPTRequest() {
+    const currentTime = Date.now();
+    const oneHourAgo = new Date(currentTime - 60 * 60 * 1000);
+    const currentHourStart = new Date(Math.floor(currentTime / (60 * 60 * 1000)) * (60 * 60 * 1000));
+
+    let apiCallRecord = await ApiCall.findOne({ timestamp: { $gte: currentHourStart } });
+
+    if (apiCallRecord) {
+        if (apiCallRecord.count >= process.env.RATE_LIMIT) {
+            console.log('Rate limit exceeded. Skipping GPT-4 request.');
+            return false;
+        }
+        apiCallRecord.count += 1;
+        await apiCallRecord.save();
+        return true;
+    } else {
+        const newApiCallRecord = new ApiCall({
+            count: 1,
+            timestamp: currentTime,
+        });
+        await newApiCallRecord.save();
+        return true;
+    }
+}
+
 async function summarize_data(data, image, keywords, heading, heading_id, author = null, publishedAt = null, category = null) {
     if (!data) {
         console.log('The data value is:', data);
@@ -79,10 +105,9 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
     }
     const config = await fetchFirebaseConfig();
     let summ_text, images, head, source, auto_approve;
-    auto_approve = config && config.auto_approve?config.auto_approve:false;
+    auto_approve = config && config.auto_approve ? config.auto_approve : false;
     try {
         const feed = await Rssfeed.findById(heading_id);
-
         if (!feed || !feed.link) {
             console.log(`No URL found for feed with ID ${heading_id}`);
             return;
@@ -100,12 +125,28 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
             return;
         }
         summ_text = summ_text.replace(/^["',\s]+/, '');
-
         const words = summ_text.trim().split(/\s+/);
         if (words.length > 90) {
             summ_text = words.slice(0, 90).join(' ') + ".";
         }
-
+        let isChatgpt = false;
+        if (words.length > 80) {
+            console.log("Summary exceeds 80 words, checking rate limit for GPT-4 Mini...");
+            
+            const canMakeRequest = await canMakeChatGPTRequest();
+            if (!canMakeRequest) {
+                console.log("Rate limit exceeded. Skipping GPT-4 request.");
+            }
+            else {
+                console.log('Hitting chatgpt');
+                isChatgpt = true;
+                summ_text = await chatWithGPT4Mini(summ_text);
+                if(!summ_text){
+                    console.log('ISSUE | No response from Chatgpt')
+                    return;
+                }
+            }
+        }
         try {
             head = cleanText(heading);
         } catch (error) {
@@ -113,6 +154,7 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
             head = heading;
         }
 
+        // Check for duplicate content
         const isDuplicateByContent = await isSimilarArticle(summ_text);
         if (isDuplicateByContent) {
             console.log('Duplicate found by content similarity, skipping...');
@@ -124,14 +166,15 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
             getCategory = [];
         }
         const uniqueCategories = [...new Set([category, ...getCategory].filter(Boolean))];
-        source = source=="hindustantimes"?"Hindustan Times":source=="indiatoday"?"India Today":source;
-        const gradients = []
-        if(image?.url)
-            gradients = imageGradient(image?.url)
+        source = source == "hindustantimes" ? "Hindustan Times" : source == "indiatoday" ? "India Today" : source;
 
+        let gradients = [];
+        if (image?.url) gradients = await imageGradient(image?.url);
+
+        // Save the processed news item
         await News.create({
             heading: head,
-            approved: auto_approve?auto_approve:false,
+            approved: auto_approve ? auto_approve : false,
             keywords,
             data: summ_text,
             image: image?.url || "",
@@ -142,14 +185,15 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
             sourceUrl: feed.link[0].trim(),
             publishedAt,
             hash: headingHash,
-            gradient: gradients
+            gradient: gradients,
+            isChatGpt: isChatgpt
         });
 
         await Rssfeed.updateOne({ _id: heading_id }, { $set: { success: true } });
 
     } catch (err) {
         console.error('Error during summarize_data:', err);
-        await Rssfeed.updateOne({ _id: heading_id }, { $set: { success: false} });
+        await Rssfeed.updateOne({ _id: heading_id }, { $set: { success: false } });
     }
 }
 

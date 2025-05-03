@@ -31,7 +31,8 @@ exports.getNews = async (req, res) => {
       isSaved: 1,
       source: 1,
       sourceUrl: 1,
-      gradient: 1
+      gradient: 1,
+      isChatGpt: 1
     };
 
     const baseMatch = { approved: true };
@@ -102,7 +103,8 @@ exports.getNewsById = async (req, res) => {
           isSaved: 1,
           source: 1,
           sourceUrl : 1,
-          gradient: 1
+          gradient: 1,
+          isChatGpt: 1
         };
         const newsItem = await News.find({"_id":req.params.id, "approved": true }, projection );
         if (!newsItem) return res.status(404).json({ message: "News not found" });
