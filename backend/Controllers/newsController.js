@@ -41,37 +41,33 @@ exports.getNews = async (req, res) => {
 
     if (categories) {
       const categoryArray = categories.split(',').map(cat => cat.trim());
-      const matchedNews = await News.find(
+      const articlesInRange = await News.find(
         {
           ...baseMatch,
           categories: { $in: categoryArray }
-        },
-        projection
+        }
       )
-        .sort(sort)
         .skip(skip)
         .limit(limit)
         .lean();
 
-      const matchedIds = matchedNews.map(news => news._id);
-      const remainingCount = limit - matchedNews.length;
-      let fillerNews = [];
+      const count = articlesInRange.length;
+      if (count > 0) {
+        newsList = articlesInRange;
+        const remainingCount = pageSize - newsList.length;
 
-      if (remainingCount > 0) {
-        fillerNews = await News.find(
-          {
-            ...baseMatch,
-            _id: { $nin: matchedIds },
-            categories: { $nin: categoryArray }
-          },
-          projection
-        )
-          .sort(sort)
-          .limit(remainingCount)
-          .lean();
+        if (remainingCount > 0) {
+          const randomArticles = await News.aggregate([
+            { $match: { ...baseMatch, categories: { $nin: categoryArray } } },
+            { $sample: { size: remainingCount } },
+            { $project: projection }
+          ]);
+
+          newsList = [...newsList, ...randomArticles];
+        }
+      } else {
+        return res.status(200).json({ success: true, data: [] });
       }
-
-      newsList = [...matchedNews, ...fillerNews];
     } else {
       newsList = await News.find(baseMatch, projection)
         .sort(sort)
@@ -80,7 +76,7 @@ exports.getNews = async (req, res) => {
         .lean();
     }
 
-    res.status(200).json({ success: true, data: newsList });
+    return res.status(200).json({ success: true, data: newsList });
   } catch (error) {
     console.error("Error fetching approved news:", error);
     res.status(500).json({ message: "Error fetching approved news", error: error.message });
