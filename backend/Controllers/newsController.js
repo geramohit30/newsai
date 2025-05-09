@@ -5,6 +5,15 @@ const {fetchFirebaseConfig, clearFirebaseConfigCache}  = require('../Config/Fire
 const Pagination = require('../Utils/pagination_utils')
 const ObjectId = mongoose.Types.ObjectId;
 
+function normalizeCategories(input) {
+  if (!input) return [];
+  return input
+    .split(',')
+    .map(cat => cat.trim())
+    .filter(Boolean)
+    .map(cat => cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase());
+}
+
 exports.getNews = async (req, res) => {
   try {
     const config = await fetchFirebaseConfig();
@@ -36,20 +45,21 @@ exports.getNews = async (req, res) => {
     };
 
     const baseMatch = { approved: true };
-    const sort = { publishedAt: -1, _id: -1 };
+    const sort = { publishedAt: -1 };
     let newsList = [];
 
     if (categories) {
-      const categoryArray = categories.split(',').map(cat => cat.trim());
+      const categoryArray = normalizeCategories(categories);
       const articlesInRange = await News.find(
         {
           ...baseMatch,
           categories: { $in: categoryArray }
         }
       )
-        .skip(skip)
-        .limit(limit)
-        .lean();
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
       const count = articlesInRange.length;
       if (count > 0) {
