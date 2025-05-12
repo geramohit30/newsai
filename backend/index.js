@@ -26,6 +26,24 @@ app.use('/api/auth', authRoutes);
 app.use('/health', (req, res) => {
     res.send('Server is up and running');
 });
+app.get('/.well-known/assetlinks.json', (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    const assetLinksData = {
+        "relation": [
+          "delegate_permission/common.handle_all_urls"
+        ],
+        "target": {
+          "namespace": "android_app",
+          "package_name": process.env.PACKAGE_NAME,
+          "sha256_cert_fingerprints": [
+            process.env.SHA256_FINGERPRINT_1,
+            process.env.SHA256_FINGERPRINT_2
+          ]
+        }
+      };
+    res.status(200).json(assetLinksData);
+  });
+  
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
