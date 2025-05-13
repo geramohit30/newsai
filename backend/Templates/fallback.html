@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Opening Article...</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    function openApp() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const id = urlParams.get('id');
+      const ua = navigator.userAgent || '';
+
+      const iosStore = 'https://apps.apple.com/app/com.app.newsai';
+      const androidStore = 'https://play.google.com/store/apps/details?id=com.app.newsai';
+      const appLink = `myapp://article/${id}`;
+      const fallback = /iPhone|iPad|iPod/.test(ua) ? iosStore : /Android/.test(ua) ? androidStore : '/';
+
+      const start = Date.now();
+      window.location = appLink;
+
+      setTimeout(() => {
+        if (Date.now() - start < 2000) {
+          window.location = fallback;
+        }
+      }, 1500);
+    }
+  </script>
+</head>
+<body onload="openApp()">
+  <p>Opening the app... Please wait.</p>
+</body>
+</html>

@@ -95,7 +95,11 @@ exports.getNews = async (req, res) => {
 
 exports.getNewsById = async (req, res) => {
     try {
-        console.log("Finding the ID : ", req.params.id);
+        let is_app = req.query.app
+        if(!is_app){
+          let req_id = req.params.id;
+          return res.redirect(`/fallback.html?id=${req_id}`);
+        }
         const projection = {
           heading: 1,
           image: 1,
