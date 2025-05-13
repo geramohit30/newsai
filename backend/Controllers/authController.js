@@ -48,7 +48,7 @@ exports.loginWithOTP = async (req, res) => {
           
           const token = jwt.sign({ id: user._id, user: user.phone, role: user.role }, process.env.JWT_SECRET, { expiresIn: "3h" })
           const refreshToken = jwt.sign({ id: user._id },process.env.REFRESH_TOKEN_SECRET,{ expiresIn: '7d' });
-          return res.json({ token: token, refresh_token : refreshToken });
+          return res.json({ token: token, refresh_token : refreshToken , "isNewUser":users?true:false});
       }else{
       const decoded = await admin.auth().verifyIdToken(firebaseToken);
       const phoneNumber = decoded.phone_number;
@@ -70,7 +70,7 @@ exports.loginWithOTP = async (req, res) => {
         newUser.save()
         token = jwt.sign({ id: newUser._id, user: phone_number, role: newUser.role }, process.env.JWT_SECRET, { expiresIn: "3h" });
         refreshToken = jwt.sign({ id: newUser._id },process.env.REFRESH_TOKEN_SECRET,{ expiresIn: '7d' });
-        return res.json({ token: token, refresh_token: refreshToken });
+        return res.json({ token: token, refresh_token: refreshToken, "isNewUser":newUser?true:false });
         
       }
       token = jwt.sign({ id: user._id, user: user.phone, role: user.role }, process.env.JWT_SECRET, { expiresIn: "3h" });
