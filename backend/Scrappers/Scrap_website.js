@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 const connectDB = require('../Utils/mongo_utils');
 const summarizeText = require('../Summarize/hugging_face');
 const nlp = require('../Summarize/nlp')
-const nlp2 = require('../Summarize/nlp2')
+const {summarize,cleanText} = require('../Summarize/nlp2')
 const {fetchFirebaseConfig, clearFirebaseConfigCache}  = require('../Config/FirebaseLimitConfig');
 const News = require('../Models/newsModel');
 const Rssfeed = require('../Models/rssfeedModel');
@@ -35,6 +35,10 @@ const UNWANTED_PHRASES = [
 function generateHeadingHash(heading) {
     const cleanedHeading = cleanText(heading || "");
     return crypto.createHash('sha256').update(cleanedHeading).digest('hex');
+}
+
+function capitalizeSentences(text) {
+    return text.replace(/(^\s*\w|[.!?]\s*\w)/g, match => match.toUpperCase());
 }
 
 async function isSimilarArticle(newText, threshold = 0.9) {
@@ -116,7 +120,7 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
         source = new URL(feed.link[0]).hostname.split('.').slice(-2, -1)[0].trim();
 
         [summ_text, images] = await Promise.all([
-            nlp2(data, 2),
+            summarize(data, 2),
             getImages(keywords, 5)
         ]);
 
@@ -166,14 +170,14 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
             getCategory = [];
         }
         const uniqueCategories = [...new Set([category, ...getCategory].filter(Boolean))];
-        source = source == "hindustantimes" ? "Hindustan Times" : source == "indiatoday" ? "India Today" : source;
+        source = source == "hindustantimes" ? "Hindustan Times" : source == "indiatoday" ? "India Today" : capitalizeSentences(source);
 
         let gradients = [];
         if (image?.url) gradients = await imageGradient(image?.url);
 
         // Save the processed news item
         await News.create({
-            heading: head,
+            heading: cleanText(head),
             approved: auto_approve ? auto_approve : false,
             keywords,
             data: summ_text,

@@ -95,4 +95,4 @@ function summarize(text, maxLines = 3) {
     return formatSentences(topSentences.slice(0, maxLines));
 }
 
-module.exports = summarize;
+module.exports = {summarize, cleanText};

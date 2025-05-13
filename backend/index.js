@@ -36,8 +36,7 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
           "namespace": "android_app",
           "package_name": process.env.PACKAGE_NAME,
           "sha256_cert_fingerprints": [
-            process.env.SHA256_FINGERPRINT_1,
-            process.env.SHA256_FINGERPRINT_2
+            process.env.SHA256_FINGERPRINT_1
           ]
         }
       };
