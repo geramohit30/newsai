@@ -60,7 +60,7 @@ async function isSimilarArticle(newText, threshold = 0.9) {
     return false;
 }
 
-function cleanText(text) {
+function cleanTextt(text) {
     let cleanedText = he.decode(text);
     UNWANTED_PHRASES.forEach(phrase => {
         const regex = new RegExp(`\\b${phrase}\\b.*?(?=\\.|\\!|\\?)`, "gi");
@@ -152,7 +152,7 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
             }
         }
         try {
-            head = cleanText(heading);
+            head = cleanTextt(heading);
         } catch (error) {
             console.log('Error while cleaning heading:', error);
             head = heading;
