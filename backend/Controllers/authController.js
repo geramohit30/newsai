@@ -64,8 +64,8 @@ exports.loginWithOTP = async (req, res) => {
       let user = await User.findOne({ phone: phone_number });
       let token = null
       let refreshToken = null;
+      let newUser = null
       if(!user){
-        let newUser = null
         newUser = new User({username:"User", phone: phone_number, f_id: firebaseId});
         newUser.save()
         token = jwt.sign({ id: newUser._id, user: phone_number, role: newUser.role }, process.env.JWT_SECRET, { expiresIn: "3h" });
@@ -75,7 +75,7 @@ exports.loginWithOTP = async (req, res) => {
       }
       token = jwt.sign({ id: user._id, user: user.phone, role: user.role }, process.env.JWT_SECRET, { expiresIn: "3h" });
       refreshToken = jwt.sign({ id: user._id },process.env.REFRESH_TOKEN_SECRET,{ expiresIn: '7d' });
-      return res.json({ token : token, refresh_token : refreshToken });}
+      return res.json({ token : token, refresh_token : refreshToken, "isNewUser":newUser?true:false});}
      
     } catch (error) {
       console.error("OTP login error:", error);
@@ -143,7 +143,7 @@ exports.userData = async (req, res) => {
     }
     return res.status(200).json({
       success: true,
-      data: user,
+      data: {...user, },
     });
   } catch (err) {
     console.error(err);
