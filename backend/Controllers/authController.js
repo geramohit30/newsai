@@ -143,7 +143,7 @@ exports.userData = async (req, res) => {
     }
     return res.status(200).json({
       success: true,
-      data: {...user, },
+      data: user,
     });
   } catch (err) {
     console.error(err);
