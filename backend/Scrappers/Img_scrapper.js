@@ -2,6 +2,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 
 async function fetchBingImages(keywordsStr, count = 3) {
+    if(!keywordsStr || keywordsStr.length==0) return [];
     const keywords = keywordsStr.toLowerCase().split(',').map(k => k.trim());
     const query = encodeURIComponent(keywords.join(' '));
     const url = `https://www.bing.com/images/search?q=${query}&form=HDRSC2&first=1&tsc=ImageBasicHover`;
