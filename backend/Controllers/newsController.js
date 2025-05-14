@@ -1,4 +1,5 @@
 const News = require('../Models/newsModel');
+const SavedNews = require('../Models/bookmarkModel')
 const mongoose = require('mongoose');
 const firebaseConfig = require('../Config/FirebaseConfig')
 const {fetchFirebaseConfig, clearFirebaseConfigCache}  = require('../Config/FirebaseLimitConfig');
@@ -22,10 +23,15 @@ exports.getNews = async (req, res) => {
     const {
       categories,
       page = 1,
-      pageSize = defaultPageSize
+      pageSize = defaultPageSize,
+      userId
     } = req.query;
-
     const { skip, limit } = Pagination(page, pageSize);
+    let savedIdsSet = new Set();
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      const saved = await SavedNews.find({ user: userId }).select('news').lean();
+      savedIdsSet = new Set(saved.map(s => s.news.toString()));
+    }
 
     const projection = {
       heading: 1,
@@ -85,6 +91,10 @@ exports.getNews = async (req, res) => {
         .limit(limit)
         .lean();
     }
+    const resultWithSaved = newsList.map(article => ({
+      ...article,
+      isSaved: savedIdsSet.has(article._id.toString())
+    }));
 
     return res.status(200).json({ success: true, data: newsList });
   } catch (error) {
