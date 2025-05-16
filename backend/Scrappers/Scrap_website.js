@@ -71,6 +71,7 @@ function cleanTextt(text) {
 }
 
 async function canMakeChatGPTRequest() {
+    return false;
     const currentTime = Date.now();
     const oneHourAgo = new Date(currentTime - 60 * 60 * 1000);
     const currentHourStart = new Date(Math.floor(currentTime / (60 * 60 * 1000)) * (60 * 60 * 1000));
@@ -94,6 +95,23 @@ async function canMakeChatGPTRequest() {
         return true;
     }
 }
+function extractKeywords(text, numKeywords = 5) {
+    text = text.replace(/[^\w\s]/g, "").toLowerCase();
+    
+    const wordCounts = {};
+    const words = text.split(/\s+/);
+
+    words.forEach(word => {
+        if (word.length > 2) {
+            wordCounts[word] = (wordCounts[word] || 0) + 1;
+        }
+    });
+    const sortedWords = Object.entries(wordCounts)
+        .sort(([, countA], [, countB]) => countB - countA)
+        .slice(0, numKeywords)
+        .map(([word]) => word);
+    return sortedWords.join(', ');
+}
 
 async function summarize_data(data, image, keywords, heading, heading_id, author = null, publishedAt = null, category = null) {
     if (!data) {
@@ -106,6 +124,12 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
     if (existsByHeading) {
         console.log('Duplicate found by heading hash, skipping...');
         return;
+    }
+    if (!keywords || keywords.length === 0) {
+        console.log('Generating keywords from heading and data...');
+        const combinedText = heading + " " + data;
+        keywords = extractKeywords(combinedText, 5);
+        console.log('Generated Keywords:', keywords);
     }
     const config = await fetchFirebaseConfig();
     let summ_text, images, head, source, auto_approve;
@@ -165,7 +189,7 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
             return;
         }
 
-        let getCategory = getCategoryFromKeywords(keywords);
+        let getCategory = getCategoryFromKeywords(keywords, head);
         if (getCategory.length === 1 && getCategory[0] === "Uncategorized") {
             getCategory = [];
         }
@@ -173,8 +197,7 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
         source = source == "hindustantimes" ? "Hindustan Times" : source == "indiatoday" ? "India Today" : capitalizeSentences(source);
 
         let gradients = [];
-        if (image?.url) gradients = await imageGradient(image?.url);
-
+        if (image) gradients = await imageGradient(image);
         // Save the processed news item
         await News.create({
             heading: cleanText(head),
@@ -201,33 +224,72 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
     }
 }
 
+async function data_update(urls, heading_id) {
+    for (const url of urls) {
+        console.log('Processing URL:', url);
+        try {
+            const { data } = await axios.get(url, {
+                httpsAgent: new https.Agent({ rejectUnauthorized: false })
+            });
+            const $ = cheerio.load(data);
 
-async function data_update(url, heading_id) {
-    console.log('Processing URL:', url[0]);
-
-    try {
-        const { data } = await axios.get(url[0], {
-            httpsAgent: new https.Agent({ rejectUnauthorized: false })
-        });
-
-        const $ = cheerio.load(data);
-
-        $('script[type^="application"]').each((_, element) => {
-            try {
-                let jsonText = $(element).html().trim();
-                jsonText = jsonText.replace(/[\u0000-\u001F]+/g, "");
-                const parsedata = JSON.parse(jsonText);
-                if (parsedata['@type'] === "NewsArticle" && parsedata['headline']) {
-                    summarize_data(parsedata['articleBody'], parsedata['image'], parsedata['keywords'], parsedata['headline'], heading_id, null, parsedata['datePublished'],parsedata['articleSection']);
+            $('script[type^="application/ld+json"]').each((_, element) => {
+                try {
+                    let jsonText = $(element).html().trim();
+                    jsonText = jsonText.replace(/[\u0000-\u001F]+/g, "");
+                    let parsedata = JSON.parse(jsonText);
+                    if ((parsedata['@type'] === "NewsArticle" || parsedata['@type'] === "Article") ||
+                    (parsedata['@graph'] && parsedata['@graph'][0]['@type'] === "NewsArticle")){
+                        if(parsedata['@graph']){
+                            parsedata = parsedata['@graph'][0];
+                        }
+                        const headline = parsedata.headline || 'No headline available';
+                        const articleBody = parsedata.articleBody || parsedata.description || '';
+                        const image = parsedata.image?.url;
+                        const keywords = parsedata.keywords || [];
+                        const datePublished = parsedata.datePublished || '';
+                        const articleSection = parsedata.articleSection || '';
+                        summarize_data(articleBody, image, keywords, headline, heading_id, null, datePublished, articleSection);
+                    } else {
+                        console.log('No valid NewsArticle data found in:', url);
+                    }
+                } catch (error) {
+                    console.log('Error parsing JSON-LD data:', error.message);
                 }
-            } catch (error) {
-                console.log('Error in article scraping:', error.message);
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching article:', error.message);
+            });
+        } catch (error) {
+            console.error('Error fetching article:', error.message);
+        }
     }
 }
+// async function data_update(url, heading_id) {
+//     console.log('Processing URL:', url[0]);
+
+//     try {
+//         const { data } = await axios.get(url[0], {
+//             httpsAgent: new https.Agent({ rejectUnauthorized: false })
+//         });
+
+//         const $ = cheerio.load(data);
+
+//         $('script[type^="application"]').each((_, element) => {
+//             try {
+//                 let jsonText = $(element).html().trim();
+//                 jsonText = jsonText.replace(/[\u0000-\u001F]+/g, "");
+//                 const parsedata = JSON.parse(jsonText);
+//                 console.log('Just outside', parsedata);
+//                 if (parsedata['@type'] === "NewsArticle" && parsedata['headline']) {
+//                     console.log('INSIDE', parsedata['headline']);
+//                     summarize_data(parsedata['articleBody'], parsedata['image'], parsedata['keywords'], parsedata['headline'], heading_id, null, parsedata['datePublished'],parsedata['articleSection']);
+//                 }
+//             } catch (error) {
+//                 console.log('Error in article scraping:', error.message);
+//             }
+//         });
+//     } catch (error) {
+//         console.error('Error fetching article:', error.message);
+//     }
+// }
 
 async function scrapeWebsite() {
     try {
