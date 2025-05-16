@@ -180,7 +180,7 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
             heading: cleanText(head),
             approved: auto_approve ? auto_approve : false,
             keywords,
-            data: summ_text,
+            data: cleanText(summ_text),
             image: image?.url || "",
             images,
             feedId: heading_id,
