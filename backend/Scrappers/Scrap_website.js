@@ -292,6 +292,7 @@ async function data_update(urls, heading_id) {
 // }
 
 async function scrapeWebsite() {
+    let max_count = 250;
     try {
         if (mongoose.connection.readyState !== 1) {
             console.log("MongoDB not connected.");
@@ -305,9 +306,13 @@ async function scrapeWebsite() {
             return;
         }
         for (const doc of all_data) {
+            if(max_count<=0){
+                break;
+            }
             try{
             await new Promise(resolve => setTimeout(resolve, 1000));
             await data_update(doc.link, doc._id);
+            max_count--;
         }
         catch(err){
             console.log('Error in data update', err.message, doc);
