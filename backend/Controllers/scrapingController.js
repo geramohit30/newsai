@@ -16,9 +16,9 @@ exports.scrapeNow  = async (req, res) => {
   try {
     await ensureDbConnection();
     console.log('Manually triggering scraping...');
-    await runScraping();
-    await scrapeWebsite();
-    res.status(200).json({ message: 'Scraping completed successfully' });
+    runScraping();
+    scrapeWebsite();
+    res.status(200).json({ message: 'Scraping is being processed' });
   } catch (err) {
     console.error('Scraping error:', err);
     res.status(500).json({ message: 'Scraping failed', error: err.message });

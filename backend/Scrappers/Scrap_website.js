@@ -40,6 +40,22 @@ function generateHeadingHash(heading) {
 function capitalizeSentences(text) {
     return text.replace(/(^\s*\w|[.!?]\s*\w)/g, match => match.toUpperCase());
 }
+function cleanAlsoRead(text) {
+    const regex = /ALSO READ\s*[:|–-]?\s*/gi;
+    const matches = [...text.matchAll(regex)];
+  
+    if (matches.length === 0) return text.trim();
+    if (matches.length === 1) {
+      const firstIndex = matches[0].index;
+      if (firstIndex === 0) {
+        return text.slice(matches[0][0].length).trim();
+      } else {
+        return text.substring(0, firstIndex).trim();
+      }
+    }
+    const secondIndex = matches[1].index;
+    return text.substring(0, secondIndex).trim();
+  }
 
 async function isSimilarArticle(newText, threshold = 0.9) {
     const thirtyDaysAgo = new Date();
@@ -70,8 +86,11 @@ function cleanTextt(text) {
     return cleanedText;
 }
 
+function containsHtmlEntities(text) {
+    return /&(?:[a-zA-Z]+|#\d+|#x[a-fA-F0-9]+);/.test(text);
+  }
+
 async function canMakeChatGPTRequest() {
-    return false;
     const currentTime = Date.now();
     const oneHourAgo = new Date(currentTime - 60 * 60 * 1000);
     const currentHourStart = new Date(Math.floor(currentTime / (60 * 60 * 1000)) * (60 * 60 * 1000));
@@ -133,7 +152,8 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
     }
     const config = await fetchFirebaseConfig();
     let summ_text, images, head, source, auto_approve;
-    auto_approve = config && config.auto_approve ? config.auto_approve : false;
+    auto_approve = config && config.auto_approve ? config.auto_approve : false; 
+    data = cleanAlsoRead(data);
     try {
         const feed = await Rssfeed.findById(heading_id);
         if (!feed || !feed.link) {
@@ -144,7 +164,7 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
         source = new URL(feed.link[0]).hostname.split('.').slice(-2, -1)[0].trim();
 
         [summ_text, images] = await Promise.all([
-            summarize(data, 2),
+            summarize(cleanText(data), 2),
             getImages(keywords, 5)
         ]);
 
@@ -199,6 +219,11 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
         let gradients = [];
         if (image) gradients = await imageGradient(image);
         // Save the processed news item
+        let clean_text = cleanText(head);
+        let clean_body = cleanText(summ_text);
+        if(containsHtmlEntities(cleanText) || containsHtmlEntities(clean_body)){
+            return;
+        }
         await News.create({
             heading: cleanText(head),
             approved: auto_approve ? auto_approve : false,
