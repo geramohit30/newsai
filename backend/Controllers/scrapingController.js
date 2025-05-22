@@ -14,6 +14,7 @@ async function ensureDbConnection() {
 }
 
 exports.scrapeNow  = async (req, res) => {
+  res.status(200).json({ message: 'Scraping is being processed...' })
   try {
     await ensureDbConnection();
     console.log('Manually triggering scraping...');
@@ -24,25 +25,25 @@ exports.scrapeNow  = async (req, res) => {
 
       runScraping();
       scrapeWebsite();
-
       console.log('Scraping job completed!');
   } catch (error) {
       if (error.code === 11000) {
           console.log('Scraper already running or lock still valid. Skipping this run.');
-          return res.status(200).json({ message: 'Scraper already running or lock still valid' });
+          return
       } else {
           console.error('Error during scraping:', error);
-          return res.status(200).json({ message: error });
+          return
       }
   }
-    return res.status(200).json({ message: 'Scraping is being processed' });
+    return
   } catch (err) {
     console.error('Scraping error:', err);
-    res.status(500).json({ message: 'Scraping failed', error: err.message });
+    return
   }
 };
 
 exports.deleteOld = async (req, res) => {
+  return res.status(200).json({ message: 'Deletion already in process or lock still valid' });
   try {
     console.log('Insidee')
     await ensureDbConnection();
