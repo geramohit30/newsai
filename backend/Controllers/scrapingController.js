@@ -52,7 +52,7 @@ exports.deleteOld = async (req, res) => {
     try {
       await ScraperLock.create({ name: lockKey });
       console.log('Lock acquired. Running deletion.');
-      const result = await News.deleteMany({ createdAt: { $lte: twoHoursAgo } });
+      // const result = await News.deleteMany({ createdAt: { $lte: twoHoursAgo } });
     }
     catch (error) {
       if (error.code === 11000) {
