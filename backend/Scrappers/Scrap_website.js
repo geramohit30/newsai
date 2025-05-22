@@ -317,7 +317,7 @@ async function data_update(urls, heading_id) {
 // }
 
 async function scrapeWebsite() {
-    let max_count = 250;
+    let max_count = 100;
     try {
         if (mongoose.connection.readyState !== 1) {
             console.log("MongoDB not connected.");
