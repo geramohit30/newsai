@@ -29,13 +29,13 @@ exports.scrapeNow  = async (req, res) => {
   } catch (error) {
       if (error.code === 11000) {
           console.log('Scraper already running or lock still valid. Skipping this run.');
-          res.status(200).json({ message: 'Scraper already running or lock still valid' });
+          return res.status(200).json({ message: 'Scraper already running or lock still valid' });
       } else {
           console.error('Error during scraping:', error);
-          res.status(200).json({ message: error });
+          return res.status(200).json({ message: error });
       }
   }
-    res.status(200).json({ message: 'Scraping is being processed' });
+    return res.status(200).json({ message: 'Scraping is being processed' });
   } catch (err) {
     console.error('Scraping error:', err);
     res.status(500).json({ message: 'Scraping failed', error: err.message });
@@ -57,14 +57,14 @@ exports.deleteOld = async (req, res) => {
     catch (error) {
       if (error.code === 11000) {
           console.log('Deletion already in process or lock still valid. Skipping this run.');
-          res.status(200).json({ message: 'Deletion already in process or lock still valid' });
+          return res.status(200).json({ message: 'Deletion already in process or lock still valid' });
       } else {
           console.error('Error during scraping:', error);
-          res.status(200).json({ message: error });
+          return res.status(200).json({ message: error });
       }
   }
 
-    res.status(200).json({ message: 'Deleted old news items', deletedCount: result?result.deletedCount:0 });
+    return res.status(200).json({ message: 'Deleted old news items', deletedCount: result?result.deletedCount:0 });
   } catch (err) {
     console.error('Deletion error:', err);
     res.status(500).json({ message: 'Deletion failed', error: err.message });
