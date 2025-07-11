@@ -20,6 +20,8 @@ const imageGradient = require('../Utils/color_picker')
 const ApiCall = require('../Models/chatgptModel')
 const chatWithGPT4Mini = require('../Utils/chatgpt_utils')
 
+let max_limit = 100;
+let countInsertion = 0;
 const UNWANTED_PHRASES = [
     "click here", 
     "read more", 
@@ -144,6 +146,10 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
         console.log('Duplicate found by heading hash, skipping...');
         return;
     }
+    if(max_limit<=0){
+        console.log('Max article limit exceeded');
+        return;
+    }
     if (!keywords || keywords.length === 0) {
         console.log('Generating keywords from heading and data...');
         const combinedText = heading + " " + data;
@@ -221,15 +227,18 @@ async function summarize_data(data, image, keywords, heading, heading_id, author
         // Save the processed news item
         let clean_text = cleanText(head);
         let clean_body = cleanText(summ_text);
-        if(containsHtmlEntities(cleanText) || containsHtmlEntities(clean_body)){
+        if(containsHtmlEntities(clean_text) || containsHtmlEntities(clean_body)){
             return;
         }
+        max_limit -= 1;
+        countInsertion += 1;
+        console.log('CURRENT INSERTION : ', countInsertion);
         await News.create({
             heading: cleanText(head),
             approved: auto_approve ? auto_approve : false,
             keywords,
             data: cleanText(summ_text),
-            image: image?.url || "",
+            image: image || "",
             images,
             feedId: heading_id,
             categories: uniqueCategories,
@@ -275,9 +284,7 @@ async function data_update(urls, heading_id) {
                         const datePublished = parsedata.datePublished || '';
                         const articleSection = parsedata.articleSection || '';
                         summarize_data(articleBody, image, keywords, headline, heading_id, null, datePublished, articleSection);
-                    } else {
-                        console.log('No valid NewsArticle data found in:', url);
-                    }
+                    } 
                 } catch (error) {
                     console.log('Error parsing JSON-LD data:', error.message);
                 }
@@ -317,7 +324,6 @@ async function data_update(urls, heading_id) {
 // }
 
 async function scrapeWebsite() {
-    let max_count = 100;
     try {
         if (mongoose.connection.readyState !== 1) {
             console.log("MongoDB not connected.");
@@ -331,13 +337,9 @@ async function scrapeWebsite() {
             return;
         }
         for (const doc of all_data) {
-            if(max_count<=0){
-                break;
-            }
             try{
             await new Promise(resolve => setTimeout(resolve, 1000));
             await data_update(doc.link, doc._id);
-            max_count--;
         }
         catch(err){
             console.log('Error in data update', err.message, doc);
