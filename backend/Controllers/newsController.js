@@ -45,7 +45,8 @@ exports.getNews = async (req, res) => {
       source: 1,
       sourceUrl: 1,
       gradient: 1,
-      isChatGpt: 1
+      isChatGpt: 1,
+      images: 1
     };
 
     const baseMatch = { approved: true };
@@ -117,7 +118,7 @@ exports.getNewsById = async (req, res) => {
 
       const projection = {
           heading: 1, image: 1, approved: 1, feedId: 1, categories: 1, data: 1,
-          createdAt: 1, publishedAt: 1, keywords: 1, source: 1, sourceUrl: 1, gradient: 1, isChatGpt: 1
+          createdAt: 1, publishedAt: 1, keywords: 1, source: 1, sourceUrl: 1, gradient: 1, isChatGpt: 1, images: 1
       };
 
       const newsItem = await News.findOne({ "_id": req.params.id, "approved": true }, projection).lean();
