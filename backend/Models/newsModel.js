@@ -66,7 +66,11 @@ const newsSchema = new mongoose.Schema({
   isChatGpt:{
     type:Boolean,
     default: false
-  }
+  },
+  language: {
+    type: String,
+    default: 'en'
+  },
 }, { 
   timestamps: true 
 });

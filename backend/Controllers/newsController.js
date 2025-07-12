@@ -24,6 +24,7 @@ exports.getNews = async (req, res) => {
       categories,
       page = 1,
       pageSize = defaultPageSize,
+      lang,
     } = req.query;
     const { skip, limit } = Pagination(page, pageSize);
     let savedIdsSet = new Set();
@@ -50,6 +51,9 @@ exports.getNews = async (req, res) => {
     };
 
     const baseMatch = { approved: true };
+    if (lang) {
+      baseMatch.language = lang.toLowerCase() === 'hi' ? 'hi' : 'en';
+    }
     const sort = { publishedAt: -1 };
     let newsList = [];
 
@@ -193,4 +197,3 @@ exports.getCategories = async (req, res) => {
         return res.status(200).json({ success: true, keywords });
     }
   };
-  
