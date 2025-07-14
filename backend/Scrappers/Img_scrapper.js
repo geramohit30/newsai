@@ -1,47 +1,88 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-async function fetchBingImages(keywordsStr, count = 3) {
-    if(!keywordsStr || keywordsStr.length==0) return [];
-    const keywords = keywordsStr.toLowerCase().split(',').map(k => k.trim());
-    const query = encodeURIComponent(keywords.join(' '));
-    const url = `https://www.bing.com/images/search?q=${query}&form=HDRSC2&first=1&tsc=ImageBasicHover`;
+function cleanKeywords(rawInput, maxTerms = 5) {
+  let keywords = [];
 
-    const headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    };
+  if (Array.isArray(rawInput)) {
+    keywords = rawInput;
+  } else if (typeof rawInput === 'string') {
+    keywords = rawInput.split(',').map(k => k.trim());
+  }
 
-    try {
-        // Fetch the HTML content of Bing's search results page
-        const res = await axios(url, { headers });
-        const html = res.data;
+  const seen = new Set();
+  const cleaned = [];
 
-        // Load HTML into Cheerio for parsing
-        const $ = cheerio.load(html);
+  for (let keyword of keywords) {
+    keyword = keyword.toLowerCase()
+      .replace(/\b(to|from|with|in|on|at|by|for|the|of|return|date|time|undocking)\b/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-        const images = [];
+    if (!keyword || keyword.length < 3 || keyword.length > 60 || seen.has(keyword)) continue;
 
-        // Extract image metadata from each result
-        $('a.iusc').each((i, el) => {
-            if (i >= count) return false; // Stop after reaching the desired count
+    seen.add(keyword);
+    cleaned.push(keyword);
+    if (cleaned.length >= maxTerms) break;
+  }
 
-            try {
-                // Parse JSON metadata from the 'm' attribute
-                const meta = JSON.parse($(el).attr('m'));
-                if (meta && meta.murl) {
-                    // Push full-size image URL into the results array
-                    images.push({ url: meta.murl, priority: i + 1 });
-                }
-            } catch (err) {
-                console.error('Error parsing image metadata:', err);
-            }
+  return cleaned;
+}
+
+async function fetchBingImages(keywordsInput, count = 3) {
+  if (!keywordsInput || (typeof keywordsInput !== 'string' && !Array.isArray(keywordsInput))) {
+    return [];
+  }
+  let query = '';
+  if(typeof keywordsInput !== 'string'){
+    const cleanedKeywords = cleanKeywords(keywordsInput);
+    if (cleanedKeywords.length === 0) return [];
+        query = encodeURIComponent(cleanedKeywords.join(' '));
+  }else{
+    query = keywordsInput;
+  }
+
+  const url = `https://www.bing.com/images/search?q='${query}'&form=HDRSC2&first=1&tsc=ImageBasicHover&qft=+filterui:imagesize-large`;
+  const headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+  };
+
+  try {
+    const res = await axios.get(url, { headers });
+    const $ = cheerio.load(res.data);
+    const images = [];
+
+    $('a.iusc, div.imgpt').each((i, el) => {
+      if (images.length >= count) return false;
+
+      let metaRaw = $(el).attr('m');
+      if (!metaRaw) return;
+      try {
+        const meta = JSON.parse(metaRaw);
+        const imageUrl = meta.murl || meta.purl;
+        const width = meta.ow || 0;
+        const height = meta.oh || 0;
+        if (!imageUrl) {return};
+
+        const ext = imageUrl.split('?')[0].split('.').pop().toLowerCase();
+        if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+          return;
+        }
+
+        images.push({
+          url: imageUrl,
+          priority: i + 1
         });
+      } catch (err) {
+        console.log('Error parsing image metadata:', err.message);
+      }
+    });
 
-        return images;
-    } catch (error) {
-        console.error('Failed to fetch Bing images:', error);
-        return [];
-    }
+    return images;
+  } catch (error) {
+    console.error('Failed to fetch Bing images:', error.message);
+    return [];
+  }
 }
 
 module.exports = fetchBingImages;
