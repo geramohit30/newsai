@@ -54,6 +54,8 @@ exports.getNews = async (req, res) => {
     const baseMatch = { approved: true };
     if (lang) {
       baseMatch.language = lang.toLowerCase() === 'hi' ? 'hi' : 'en';
+    }else{
+      baseMatch.language = 'en';
     }
     const sort = { publishedAt: -1 };
     let newsList = [];
