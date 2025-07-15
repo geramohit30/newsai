@@ -323,6 +323,10 @@ async function summarize_data(
       cleanHeading = heading
         .replace(/[A-Za-z@#:/\-_.0-9%?&=]+/g, '')
         .replace(/["“”'‘’]+/g, '')
+        .replace(/[{}+;]+/g, '')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/[।.]{2,}/g, '।')
+        .replace(/\(\s*\)/g, '') 
         .trim();
 
       cleanBody = summ
