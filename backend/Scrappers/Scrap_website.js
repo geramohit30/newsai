@@ -41,6 +41,31 @@ function stripEnglishAndPunct(text = '') {
   return text.replace(/[A-Za-z]/g, '').replace(/["'`\-–—()\[\]{}:;,.!?|\/]/g, ' ').replace(/\s{2,}/g, ' ').trim();
 }
 
+async function canMakeChatGPTRequest() {
+    const currentTime = Date.now();
+    const oneHourAgo = new Date(currentTime - 60 * 60 * 1000);
+    const currentHourStart = new Date(Math.floor(currentTime / (60 * 60 * 1000)) * (60 * 60 * 1000));
+
+    let apiCallRecord = await ApiCall.findOne({ timestamp: { $gte: currentHourStart } });
+
+    if (apiCallRecord) {
+        if (apiCallRecord.count >= process.env.RATE_LIMIT) {
+            console.log('Rate limit exceeded. Skipping GPT-4 request.');
+            return false;
+        }
+        apiCallRecord.count += 1;
+        await apiCallRecord.save();
+        return true;
+    } else {
+        const newApiCallRecord = new ApiCall({
+            count: 1,
+            timestamp: currentTime,
+        });
+        await newApiCallRecord.save();
+        return true;
+    }
+}
+
 function headingHash(h) {
   return crypto.createHash('sha256').update(cleanText(h || '')).digest('hex');
 }
@@ -87,7 +112,7 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
 
     if (!summ || await similarArticle(summ)) return;
 
-    if (!isHindi && summ.split(/\s+/).length > 80 && await canMakeChatGPTRequest()) {
+    if (summ.split(/\s+/).length > 80 && await canMakeChatGPTRequest()) {
       const gptSummary = await chatWithGPT4Mini(summ);
       if (gptSummary) summ = gptSummary;
     }
