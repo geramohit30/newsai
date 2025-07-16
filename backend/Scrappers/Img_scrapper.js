@@ -48,9 +48,9 @@ async function fetchBingImages(keywordsInput, count = 3) {
   };
 
   try {
-    const res = await axios.get(url, { headers });
-    const $ = cheerio.load(res.data);
-    const images = [];
+    let res = await axios.get(url, { headers });
+    let $ = cheerio.load(res.data);
+    let images = [];
 
     $('a.iusc, div.imgpt').each((i, el) => {
       if (images.length >= count) return false;
@@ -77,7 +77,9 @@ async function fetchBingImages(keywordsInput, count = 3) {
         console.log('Error parsing image metadata:', err.message);
       }
     });
-
+    res = null;
+    $ = null;
+    global.gc && global.gc()
     return images;
   } catch (error) {
     console.error('Failed to fetch Bing images:', error.message);
