@@ -21,7 +21,7 @@ const ApiCall = require('../Models/chatgptModel');
 const chatWithGPT4Mini = require('../Utils/chatgpt_utils');
 const { guardianScraper, alJazeeraScraper } = require('./General_scrapper');
 
-let max_limit = 100;
+let max_limit = process.env.MAX_LIMIT ? parseInt(process.env.MAX_LIMIT) : 100;  
 
 
 function extractKeywords(txt, n = 5) {
@@ -39,7 +39,7 @@ function cleanHtmlContent(raw = '') {
 }
 
 function stripEnglishAndPunct(text = '') {
-  return text.replace(/[A-Za-z]/g, '').replace(/["'`\-–—()\[\]{}:;,.!?|\/]/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  return text.replace(/["'`\-–—()\[\]{}:;,.!?|\/]/g, ' ').replace(/\s{2,}/g, ' ').trim();
 }
 
 async function canMakeChatGPTRequest() {
@@ -159,6 +159,7 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
           categories: cats,
           isChatGpt: isChatgpt
          });
+         await feed.updateOne({ $set: { success: true } });
     max_limit--;
     global.gc && global.gc();
 

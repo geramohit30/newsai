@@ -6,25 +6,20 @@ const runScraping = require('../Scrappers/Scrap_heading');
 const scrapeWebsite = require('../Scrappers/Scrap_website');
 const ScraperLock = require('../Models/scrapperLock');
 const News = require('../Models/newsModel');
-
-async function ensureDbConnection() {
-  if (mongoose.connection.readyState !== 1) {
-    await connectDB();
-  }
-}
+const MongoConnect = require('../Utils/mongo_connect');
 
 exports.scrapeNow  = async (req, res) => {
   res.status(200).json({ message: 'Scraping is being processed...' })
   try {
-    await ensureDbConnection();
+    await MongoConnect();
     console.log('Manually triggering scraping...');
     const lockKey = 'scraper_lock';
     try {
       await ScraperLock.create({ name: lockKey });
       console.log('Lock acquired. Running scraper.');
 
-      runScraping();
-      scrapeWebsite();
+      await runScraping();
+      await scrapeWebsite();
       console.log('Scraping job completed!');
   } catch (error) {
       if (error.code === 11000) {
