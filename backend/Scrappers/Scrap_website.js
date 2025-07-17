@@ -17,6 +17,7 @@ const Rssfeed = require('../Models/rssfeedModel');
 const getImages = require('./Img_scrapper');
 const getCategoryFromKeywords = require('../Summarize/category');
 const imageGradient = require('../Utils/color_picker');
+const ApiCall = require('../Models/chatgptModel');
 const chatWithGPT4Mini = require('../Utils/chatgpt_utils');
 const { guardianScraper, alJazeeraScraper } = require('./General_scrapper');
 
@@ -134,8 +135,10 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
     if (isHindi) {
       cleanHeading = stripEnglishAndPunct(cleanHeading);
       cleanBody = stripEnglishAndPunct(cleanBody);
+      const cleanedDate = publishedAt.replace(/\\T/, 'T')
+      publishedAt = cleanedDate;
     }
-
+    
     await News.create({ 
           heading: cleanHeading,
           approved: autoOk,
