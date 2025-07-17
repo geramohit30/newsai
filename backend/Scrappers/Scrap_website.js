@@ -88,7 +88,7 @@ async function similarArticle(text, thresh = 0.9) {
 
 async function summarize_data(raw, image, keywords, heading, feedId, author = null, publishedAt = null, category = null) {
   try {
-    if (!raw || max_limit <= 0) return;
+    if (!raw || max_limit <= 0 || !image) return;
     let data = cleanHtmlContent(raw);
     const hash = headingHash(heading);
     if (await News.exists({ hash })) return;
@@ -127,7 +127,7 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
     const originalKeywords = hasOriginalKeywords ? keywords : null;
     const imageSearchQuery = originalKeywords || heading;
     const imgs = await getImages(imageSearchQuery, 5);
-    const gradients = image ? await imageGradient(image) : [];
+    const gradients = await imageGradient(image);
     const cats = [...new Set([...(Array.isArray(category) ? category : [category]), ...getCategoryFromKeywords(keywords, heading)].filter(Boolean))];
     const langGuess = isHindi ? 'hi' : 'en';
     let cleanHeading = cleanText(heading), cleanBody = summ;
