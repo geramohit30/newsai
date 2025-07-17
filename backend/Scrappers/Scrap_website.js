@@ -198,7 +198,8 @@ async function processUrl(url, feedId) {
           }
 
           body = cleanHtmlContent(body);
-          if (!body) continue;
+          headline = cleanHtmlContent(headline);
+          if (!body || !headline) continue;
 
           await summarize_data(body, img, kw, headline, feedId, null, obj.datePublished, section);
           break;
