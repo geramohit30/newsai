@@ -159,7 +159,7 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
           categories: cats,
           isChatGpt: isChatgpt
          });
-    feed.updateOne({ $set: { success: true } });
+    await feed.updateOne({ $set: { success: true } });
     max_limit--;
     global.gc && global.gc();
 
