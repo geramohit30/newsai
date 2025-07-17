@@ -128,7 +128,8 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
     const imageSearchQuery = originalKeywords || heading;
     const imgs = await getImages(imageSearchQuery, 5);
     const gradients = await imageGradient(image);
-    const cats = [...new Set([...(Array.isArray(category) ? category : [category]), ...getCategoryFromKeywords(keywords, heading)].filter(Boolean))];
+    const hasValidCategory = Array.isArray(category)? category.length > 0 : typeof category === 'string' && category.trim() !== '';
+    const cats = [...new Set([...(hasValidCategory? (Array.isArray(category) ? category : [category]): getCategoryFromKeywords(keywords, heading))].filter(Boolean))];
     const langGuess = isHindi ? 'hi' : 'en';
     let cleanHeading = cleanText(heading), cleanBody = summ;
 
@@ -150,7 +151,7 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
           source,
           image,
           images: imgs,
-          image_gradient: gradients,
+          gradient: gradients,
           author,
           publishedAt,
           categories: cats
