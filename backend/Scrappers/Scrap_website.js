@@ -97,6 +97,7 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
     if (!keywords || keywords.length === 0) keywords = extractKeywords(`${heading} ${data}`, 4);
 
     const cfg = await fetchFirebaseConfig();
+    let isChatgpt = false;
     const autoOk = cfg?.auto_approve ?? false;
     const feed = await Rssfeed.findById(feedId).lean();
     const srcHost = safeHostname(feed?.link?.[0]);
@@ -115,6 +116,7 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
 
     if (summ.split(/\s+/).length > 80 && await canMakeChatGPTRequest()) {
       const gptSummary = await chatWithGPT4Mini(summ);
+      isChatgpt = true;
       if (gptSummary) summ = gptSummary;
     }
 
@@ -152,9 +154,10 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
           image,
           images: imgs,
           gradient: gradients,
-          author,
+          sourceUrl: feed.link[0].trim(),
           publishedAt,
-          categories: cats
+          categories: cats,
+          isChatGpt: isChatgpt
          });
     max_limit--;
     global.gc && global.gc();
