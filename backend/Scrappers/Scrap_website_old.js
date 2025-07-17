@@ -20,7 +20,7 @@ const imageGradient = require('../Utils/color_picker')
 const ApiCall = require('../Models/chatgptModel')
 const chatWithGPT4Mini = require('../Utils/chatgpt_utils')
 
-let max_limit = 100;
+let max_limit = 1000;
 let countInsertion = 0;
 const UNWANTED_PHRASES = [
     "click here", 
