@@ -14,7 +14,7 @@ async function ensureDbConnection() {
 }
 
 exports.scrapeNow  = async (req, res) => {
-  res.status(200).json({ message: 'Scraping is being processed...' })
+  return res.status(200).json({ message: 'Scraping is being processed...' })
   try {
     await ensureDbConnection();
     console.log('Manually triggering scraping...');
