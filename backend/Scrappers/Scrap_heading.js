@@ -30,7 +30,15 @@ async function scrapheadings(url) {
                 }));
 
             if (formattedItems.length > 0) {
-                await Rssfeed.insertMany(formattedItems);
+                // await Rssfeed.insertMany(formattedItems);
+                let bulkOps = formattedItems.map(doc => ({
+                    updateOne: {
+                        filter: { title: doc.title },          // match condition
+                        update: { $setOnInsert: doc },         // insert only if not exists
+                        upsert: true
+                    }
+                }));
+                await Rssfeed.bulkWrite(bulkOps);
                 console.log(`Successfully inserted ${formattedItems.length} headings from ${url}`);
             } else {
                 console.log(`No valid headings found in ${url}`);

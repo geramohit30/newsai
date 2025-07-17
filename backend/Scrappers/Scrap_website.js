@@ -99,7 +99,7 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
     const cfg = await fetchFirebaseConfig();
     let isChatgpt = false;
     const autoOk = cfg?.auto_approve ?? false;
-    const feed = await Rssfeed.findById(feedId).lean();
+    const feed = await Rssfeed.findById(feedId);
     const srcHost = safeHostname(feed?.link?.[0]);
     if (!srcHost) return;
 
@@ -159,7 +159,7 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
           categories: cats,
           isChatGpt: isChatgpt
          });
-         await feed.updateOne({ $set: { success: true } });
+    feed.updateOne({ $set: { success: true } });
     max_limit--;
     global.gc && global.gc();
 
