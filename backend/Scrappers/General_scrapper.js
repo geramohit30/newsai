@@ -56,4 +56,36 @@ async function alJazeeraScraper(url) {
   }
 }
 
-module.exports = {guardianScraper, alJazeeraScraper};
+async function bbcScrapper(url) {
+  console.log('🔎 Scraping BBC URL:', url);
+
+  try {
+    const { data: html } = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+      },
+    });
+    const $ = cheerio.load(html);
+    const textContent = [];
+    const section = $('section#block-2');
+    if (section.length) {
+      section.find('p.sm-text__text').each((_, el) => {
+        const text = $(el).text().replace(/\u00a0/g, ' ').trim();
+        if (text) textContent.push(text);
+      });
+    }
+    if (textContent.length < 50) {
+      $('div[data-component="text-block"] p').each((_, el) => {
+        const text = $(el).text().replace(/\u00a0/g, ' ').trim();
+        if (text) textContent.push(text);
+      });
+    }
+    const fullText = textContent.join('\n\n');
+    return fullText;
+  } catch (err) {
+    console.error('❌ Error scraping BBC:', err.message);
+    return '';
+  }
+}
+
+module.exports = {guardianScraper, alJazeeraScraper, bbcScrapper};
