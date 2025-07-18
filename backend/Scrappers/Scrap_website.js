@@ -19,7 +19,7 @@ const getCategoryFromKeywords = require('../Summarize/category');
 const imageGradient = require('../Utils/color_picker');
 const ApiCall = require('../Models/chatgptModel');
 const chatWithGPT4Mini = require('../Utils/chatgpt_utils');
-const { guardianScraper, alJazeeraScraper } = require('./General_scrapper');
+const { guardianScraper, alJazeeraScraper, bbcScrapper } = require('./General_scrapper');
 
 let max_limit = process.env.MAX_LIMIT ? parseInt(process.env.MAX_LIMIT) : 100;  
 
@@ -184,7 +184,7 @@ async function processUrl(url, feedId) {
         if (obj && ['NewsArticle', 'Article', 'LiveBlogPosting', 'ReportageNewsArticle'].includes(obj['@type'])) {
           let body = '', img = '', kw = [], date = '', section = '', headline = obj.headline || '';
           if (!headline) continue;
-
+          url = (Array.isArray(url) && url.length >0) ? url[0] : url;
           if (url.includes('theguardian.com')) {
             body = await guardianScraper(url);
             img = Array.isArray(obj.image) ? obj.image[0] : '';
@@ -195,7 +195,15 @@ async function processUrl(url, feedId) {
             try {
               section = [new URL(obj.mainEntityOfPage || url).pathname.split('/')[1]];
             } catch {}
-          } else {
+          } 
+          else if (url.includes('bbc.com')) {
+            body = await bbcScrapper(url);
+            img = Array.isArray(obj.image) ? (typeof obj.image[0] === 'string' ? obj.image[0] : obj.image[0].url || '') : (obj.image?.url || '');
+            try {
+              section = [new URL(obj.mainEntityOfPage || url).pathname.split('/')[1]];
+            } catch {}
+          }
+          else {
             body = obj.articleBody || obj.description || '';
             img = obj.image?.url || (Array.isArray(obj.image) ? obj.image[0]?.url : '');
             section = obj.articleSection || '';
