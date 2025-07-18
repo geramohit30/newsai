@@ -38,7 +38,8 @@ async function scrapheadings(url) {
                         upsert: true
                     }
                 }));
-                await Rssfeed.bulkWrite(bulkOps);
+                // in case we have index conflicts then ordered false will skip only conflicted entries and not all
+                await Rssfeed.bulkWrite(bulkOps, { ordered: false });
                 console.log(`Successfully inserted ${formattedItems.length} headings from ${url}`);
             } else {
                 console.log(`No valid headings found in ${url}`);
