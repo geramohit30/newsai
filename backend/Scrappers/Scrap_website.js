@@ -181,7 +181,7 @@ async function processUrl(url, feedId) {
         if (obj['@graph']) obj = obj['@graph'].find(o => ['NewsArticle', 'Article'].includes(o['@type']));
         if (Array.isArray(obj)) obj = obj.find(o => o['@type'] === 'NewsArticle');
 
-        if (obj && ['NewsArticle', 'Article', 'LiveBlogPosting'].includes(obj['@type'])) {
+        if (obj && ['NewsArticle', 'Article', 'LiveBlogPosting', 'ReportageNewsArticle'].includes(obj['@type'])) {
           let body = '', img = '', kw = [], date = '', section = '', headline = obj.headline || '';
           if (!headline) continue;
 
