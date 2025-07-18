@@ -41,7 +41,7 @@ async function fetchBingImages(keywordsInput, count = 3) {
   }else{
     query = keywordsInput;
   }
-
+  
   const url = `https://www.bing.com/images/search?q='${query}'&form=HDRSC2&first=1&tsc=ImageBasicHover&qft=+filterui:imagesize-large`;
   const headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
@@ -51,28 +51,29 @@ async function fetchBingImages(keywordsInput, count = 3) {
     let res = await axios.get(url, { headers });
     let $ = cheerio.load(res.data);
     let images = [];
-
+    let priorityCounter = 0;
     $('a.iusc, div.imgpt').each((i, el) => {
       if (images.length >= count) return false;
-
+      
       let metaRaw = $(el).attr('m');
       if (!metaRaw) return;
       try {
         const meta = JSON.parse(metaRaw);
-        const imageUrl = meta.murl || meta.purl;
-        const width = meta.ow || 0;
-        const height = meta.oh || 0;
+        const imageUrl =  meta.turl || meta.murl;
+        const img = meta.murl || meta.purl;
         if (!imageUrl) {return};
 
-        const ext = imageUrl.split('?')[0].split('.').pop().toLowerCase();
+        const ext = img.split('?')[0].split('.').pop().toLowerCase();
         if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
           return;
         }
 
         images.push({
           url: imageUrl,
-          priority: i + 1
+          img: img,
+          priority:  priorityCounter+ 1
         });
+        priorityCounter+=1;
       } catch (err) {
         console.log('Error parsing image metadata:', err.message);
       }
