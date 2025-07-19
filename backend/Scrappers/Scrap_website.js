@@ -21,7 +21,7 @@ const ApiCall = require('../Models/chatgptModel');
 const chatWithGPT4Mini = require('../Utils/chatgpt_utils');
 const { guardianScraper, alJazeeraScraper, bbcScrapper } = require('./General_scrapper');
 
-let max_limit = process.env.MAX_LIMIT ? parseInt(process.env.MAX_LIMIT) : 100;  
+let max_limit = process.env.MAX_LIMIT ? parseInt(process.env.MAX_LIMIT) : 100;
 
 
 function extractKeywords(txt, n = 5) {
@@ -43,28 +43,28 @@ function stripEnglishAndPunct(text = '') {
 }
 
 async function canMakeChatGPTRequest() {
-    const currentTime = Date.now();
-    const oneHourAgo = new Date(currentTime - 60 * 60 * 1000);
-    const currentHourStart = new Date(Math.floor(currentTime / (60 * 60 * 1000)) * (60 * 60 * 1000));
+  const currentTime = Date.now();
+  const oneHourAgo = new Date(currentTime - 60 * 60 * 1000);
+  const currentHourStart = new Date(Math.floor(currentTime / (60 * 60 * 1000)) * (60 * 60 * 1000));
 
-    let apiCallRecord = await ApiCall.findOne({ timestamp: { $gte: currentHourStart } });
+  let apiCallRecord = await ApiCall.findOne({ timestamp: { $gte: currentHourStart } });
 
-    if (apiCallRecord) {
-        if (apiCallRecord.count >= process.env.RATE_LIMIT) {
-            console.log('Rate limit exceeded. Skipping GPT-4 request.');
-            return false;
-        }
-        apiCallRecord.count += 1;
-        await apiCallRecord.save();
-        return true;
-    } else {
-        const newApiCallRecord = new ApiCall({
-            count: 1,
-            timestamp: currentTime,
-        });
-        await newApiCallRecord.save();
-        return true;
+  if (apiCallRecord) {
+    if (apiCallRecord.count >= process.env.RATE_LIMIT) {
+      console.log('Rate limit exceeded. Skipping GPT-4 request.');
+      return false;
     }
+    apiCallRecord.count += 1;
+    await apiCallRecord.save();
+    return true;
+  } else {
+    const newApiCallRecord = new ApiCall({
+      count: 1,
+      timestamp: currentTime,
+    });
+    await newApiCallRecord.save();
+    return true;
+  }
 }
 
 function headingHash(h) {
@@ -92,8 +92,8 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
     let data = cleanHtmlContent(raw);
     const hash = headingHash(heading);
     const feed = await Rssfeed.findById(feedId);
-    if (await News.exists({ hash })){
-      if (!feed.success){
+    if (await News.exists({ hash })) {
+      if (!feed.success) {
         await feed.updateOne({ $set: { success: true } });
         console.log(`✅ Duplicate article found for hash: ${hash}. Marking feed as successful.`);
       }
@@ -111,14 +111,18 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
 
     let source = srcHost.split('.').slice(-2, -1)[0];
     source = source === 'hindustantimes' ? 'Hindustan Times' :
-             source === 'indiatoday' ? 'India Today' :
-             source.charAt(0).toUpperCase() + source.slice(1);
+      source === 'indiatoday' ? 'India Today' :
+        source.charAt(0).toUpperCase() + source.slice(1);
 
     let summ = isHindi
       ? data.split(/[।!?]/).filter(s => s.length > 20).slice(0, 3).join('। ') + '।'
       : (await summarize(cleanText(data), 2) || '').trim();
 
-    if (!summ || await similarArticle(summ)) return;
+    if (!summ || await similarArticle(summ)) {
+      await feed.updateOne({ $set: { success: true } });
+      console.log(`✅✅ Similar article found for hash: ${hash}. Marking feed as successful.`);
+      return;
+    }
 
     if (summ.split(/\s+/).length > 80 && await canMakeChatGPTRequest()) {
       const gptSummary = await chatWithGPT4Mini(summ);
@@ -129,15 +133,15 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
     if (summ.split(/\s+/).length > 100) {
       summ = summ.split(/\s+/).slice(0, 100).join(' ') + (isHindi ? '।' : '.');
     }
-     const hasOriginalKeywords =
+    const hasOriginalKeywords =
       (Array.isArray(keywords) && keywords.length > 0) ||
       (typeof keywords === 'string' && keywords.trim().length > 0);
     const originalKeywords = hasOriginalKeywords ? keywords : null;
     const imageSearchQuery = originalKeywords || heading;
     const imgs = await getImages(imageSearchQuery, 5);
     const gradients = await imageGradient(image);
-    const hasValidCategory = Array.isArray(category)? category.length > 0 : typeof category === 'string' && category.trim() !== '';
-    const cats = [...new Set([...(hasValidCategory? (Array.isArray(category) ? category : [category]): getCategoryFromKeywords(keywords, heading))].filter(Boolean))];
+    const hasValidCategory = Array.isArray(category) ? category.length > 0 : typeof category === 'string' && category.trim() !== '';
+    const cats = [...new Set([...(hasValidCategory ? (Array.isArray(category) ? category : [category]) : getCategoryFromKeywords(keywords, heading))].filter(Boolean))];
     const langGuess = isHindi ? 'hi' : 'en';
     let cleanHeading = cleanText(heading), cleanBody = summ;
 
@@ -147,24 +151,24 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
       const cleanedDate = publishedAt.replace(/\\T/, 'T')
       publishedAt = cleanedDate;
     }
-    
-    await News.create({ 
-          heading: cleanHeading,
-          approved: autoOk,
-          hash,
-          data: cleanBody,
-          language: langGuess,
-          feedId,
-          keywords,
-          source,
-          image,
-          images: imgs,
-          gradient: gradients,
-          sourceUrl: feed.link[0].trim(),
-          publishedAt,
-          categories: cats,
-          isChatGpt: isChatgpt
-         });
+
+    await News.create({
+      heading: cleanHeading,
+      approved: autoOk,
+      hash,
+      data: cleanBody,
+      language: langGuess,
+      feedId,
+      keywords,
+      source,
+      image,
+      images: imgs,
+      gradient: gradients,
+      sourceUrl: feed.link[0].trim(),
+      publishedAt,
+      categories: cats,
+      isChatGpt: isChatgpt
+    });
     await feed.updateOne({ $set: { success: true } });
     max_limit--;
     global.gc && global.gc();
@@ -191,12 +195,12 @@ async function processUrl(url, feedId) {
 
         if (obj && ['NewsArticle', 'Article', 'LiveBlogPosting', 'ReportageNewsArticle'].includes(obj['@type'])) {
           let body = '', img = '', kw = [], date = '', section = '', headline = obj.headline || '';
-          if (!headline){
+          if (!headline) {
             errorMessage = 'headline is empty';
             console.log(`headline is empty for ${url}`);
             continue;
           }
-          url = (Array.isArray(url) && url.length >0) ? url[0] : url;
+          url = (Array.isArray(url) && url.length > 0) ? url[0] : url;
           if (url.includes('theguardian.com')) {
             body = await guardianScraper(url);
             img = Array.isArray(obj.image) ? obj.image[0] : '';
@@ -206,14 +210,14 @@ async function processUrl(url, feedId) {
             img = Array.isArray(obj.image) ? (typeof obj.image[0] === 'string' ? obj.image[0] : obj.image[0].url || '') : (obj.image?.url || '');
             try {
               section = [new URL(obj.mainEntityOfPage || url).pathname.split('/')[1]];
-            } catch {}
-          } 
+            } catch { }
+          }
           else if (url.includes('bbc.com')) {
             body = await bbcScrapper(url);
             img = Array.isArray(obj.image) ? (typeof obj.image[0] === 'string' ? obj.image[0] : obj.image[0].url || '') : (obj.image?.url || '');
             try {
               section = [new URL(obj.mainEntityOfPage || url).pathname.split('/')[1]];
-            } catch {}
+            } catch { }
           }
           else {
             body = obj.articleBody || obj.description || '';
@@ -223,7 +227,7 @@ async function processUrl(url, feedId) {
 
           body = cleanHtmlContent(body);
           headline = cleanHtmlContent(headline);
-          if (!body || !headline){
+          if (!body || !headline) {
             errorMessage = 'body is empty / cleaned headline is empty';
             console.log(`body is empty / cleaned headline is empty for ${url}`);
             continue;
@@ -237,7 +241,7 @@ async function processUrl(url, feedId) {
           errorMessage = 'parsing error obj is undefined';
           console.log(`parsing error obj is undefined for ${url}`);
         }
-        else{
+        else {
           errorMessage = `Unsupported obj type: ${obj['@type'] || 'unknown'}`;
           console.log(`Unsupported obj type for ${url}: ${obj['@type'] || 'unknown'}`);
         }
@@ -246,7 +250,7 @@ async function processUrl(url, feedId) {
         console.error(`⚠️ JSON-LD parse error for ${url}:`, err.message);
       }
     }
-    if(ScrapeFailure && errorMessage.length > 0) {
+    if (ScrapeFailure && errorMessage.length > 0) {
       await feed.updateOne({ $set: { success: false, errorMessage: errorMessage } });
       console.log(`❌ Failed to scrape data for ${url}: ${errorMessage}`);
     }
@@ -265,17 +269,17 @@ async function scrapeWebsite() {
   const feedCursor = Rssfeed.find({
     success: false,
     $or: [
-    { errorMessage: { $exists: false } },
-    { errorMessage: "" }
-  ],
+      { errorMessage: { $exists: false } },
+      { errorMessage: "" }
+    ],
     createdAt: { $gte: fourHoursAgo }
   }).sort({ createdAt: -1 }).cursor();
 
   for await (const feed of feedCursor) {
     if (max_limit <= 0) {
-    console.log('✅ max_limit reached. Stopping feed processing.');
-    break;
-  }
+      console.log('✅ max_limit reached. Stopping feed processing.');
+      break;
+    }
     console.log(`🔗 Processing feed: ${feed.link}`);
     await processUrl(feed.link, feed._id);
     await new Promise(r => setTimeout(r, 200));
