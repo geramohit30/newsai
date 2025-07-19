@@ -245,7 +245,14 @@ async function processUrl(url, feedId) {
 async function scrapeWebsite() {
   await mongoConnect();
   const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
-  const feedCursor = Rssfeed.find({success: false, createdAt: { $gte: fourHoursAgo }}).sort({ createdAt: -1 }).cursor();
+  const feedCursor = Rssfeed.find({
+    success: false,
+    $or: [
+    { errorMessage: { $exists: false } },
+    { errorMessage: "" }
+  ],
+    createdAt: { $gte: fourHoursAgo }
+  }).sort({ createdAt: -1 }).cursor();
 
   for await (const feed of feedCursor) {
     if (max_limit <= 0) {
