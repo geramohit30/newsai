@@ -192,6 +192,7 @@ async function processUrl(url, feedId) {
           let body = '', img = '', kw = [], date = '', section = '', headline = obj.headline || '';
           if (!headline){
             await feed.updateOne({ $set: { success: false , errorMessage: "headling is empty"} });
+            console.log(`headline is empty ${feedId}`);
             continue;
           }
           url = (Array.isArray(url) && url.length >0) ? url[0] : url;
@@ -223,10 +224,15 @@ async function processUrl(url, feedId) {
           headline = cleanHtmlContent(headline);
           if (!body || !headline){
             await feed.updateOne({ $set: { success: false , errorMessage: "body is empty / cleaned headline is empty"} });
+            console.log(`body is empty / cleaned headline is empty ${feedId}`);
             continue;
           }
           await summarize_data(body, img, kw, headline, feedId, null, obj.datePublished, section);
           break;
+        }
+        else{
+          await feed.updateOne({ $set: { success: false, errorMessage: `Unsupported obj type: ${obj['@type'] || 'unknown'}` } });
+          console.log(`Unsupported obj type: ${obj['@type'] || 'unknown'}`);
         }
       } catch (err) {
         await feed.updateOne({ $set: { success: false, errorMessage: `JSON-LD parse error: ${err.message}` } });
