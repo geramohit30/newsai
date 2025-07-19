@@ -182,6 +182,7 @@ async function processUrl(url, feedId) {
     let scripts = $('script[type^="application/ld+json"]');
     html = null;
 
+    let ScrapeFailure = true, errorMessage = '';
     for (let i = 0; i < scripts.length; i++) {
       try {
         let obj = JSON.parse($(scripts[i]).html().replace(/[\u0000-\u001F]+/g, ''));
@@ -191,7 +192,7 @@ async function processUrl(url, feedId) {
         if (obj && ['NewsArticle', 'Article', 'LiveBlogPosting', 'ReportageNewsArticle'].includes(obj['@type'])) {
           let body = '', img = '', kw = [], date = '', section = '', headline = obj.headline || '';
           if (!headline){
-            await feed.updateOne({ $set: { success: false , errorMessage: "headling is empty"} });
+            errorMessage = 'headline is empty';
             console.log(`headline is empty ${feedId}`);
             continue;
           }
@@ -223,21 +224,31 @@ async function processUrl(url, feedId) {
           body = cleanHtmlContent(body);
           headline = cleanHtmlContent(headline);
           if (!body || !headline){
-            await feed.updateOne({ $set: { success: false , errorMessage: "body is empty / cleaned headline is empty"} });
+            errorMessage = 'body is empty / cleaned headline is empty';
             console.log(`body is empty / cleaned headline is empty ${feedId}`);
             continue;
           }
           await summarize_data(body, img, kw, headline, feedId, null, obj.datePublished, section);
+          ScrapeFailure = false;
+          errorMessage = '';
           break;
         }
+        else if (!obj) {
+          errorMessage = 'parsing error obj is undefined';
+          console.log(`parsing error obj is undefined`);
+        }
         else{
-          await feed.updateOne({ $set: { success: false, errorMessage: `Unsupported obj type: ${obj['@type'] || 'unknown'}` } });
+          errorMessage = `Unsupported obj type: ${obj['@type'] || 'unknown'}`;
           console.log(`Unsupported obj type: ${obj['@type'] || 'unknown'}`);
         }
       } catch (err) {
-        await feed.updateOne({ $set: { success: false, errorMessage: `JSON-LD parse error: ${err.message}` } });
+        errorMessage = `JSON-LD parse error: ${err.message}`;
         console.error(`⚠️ JSON-LD parse error for ${url}:`, err.message);
       }
+    }
+    if(ScrapeFailure && errorMessage.length > 0) {
+      await feed.updateOne({ $set: { success: false, errorMessage } });
+      console.log(`❌ Failed to insert data for ${url}: ${errorMessage}`);
     }
     scripts = null;
     $ = null;
