@@ -193,7 +193,7 @@ async function processUrl(url, feedId) {
           let body = '', img = '', kw = [], date = '', section = '', headline = obj.headline || '';
           if (!headline){
             errorMessage = 'headline is empty';
-            console.log(`headline is empty ${feedId}`);
+            console.log(`headline is empty for ${url}`);
             continue;
           }
           url = (Array.isArray(url) && url.length >0) ? url[0] : url;
@@ -235,10 +235,10 @@ async function processUrl(url, feedId) {
         }
         else if (!obj) {
           errorMessage = 'parsing error obj is undefined';
-          console.log(`parsing error obj is undefined`);
+          console.log(`parsing error obj is undefined for ${url}`);
         }
         else{
-          errorMessage = `Unsupported obj type: ${obj['@type'] || 'unknown'}`;
+          errorMessage = `Unsupported obj type for ${url} : ${obj['@type'] || 'unknown'}`;
           console.log(`Unsupported obj type: ${obj['@type'] || 'unknown'}`);
         }
       } catch (err) {
