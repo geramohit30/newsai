@@ -225,7 +225,7 @@ async function processUrl(url, feedId) {
           headline = cleanHtmlContent(headline);
           if (!body || !headline){
             errorMessage = 'body is empty / cleaned headline is empty';
-            console.log(`body is empty / cleaned headline is empty ${feedId}`);
+            console.log(`body is empty / cleaned headline is empty for ${url}`);
             continue;
           }
           await summarize_data(body, img, kw, headline, feedId, null, obj.datePublished, section);
@@ -238,8 +238,8 @@ async function processUrl(url, feedId) {
           console.log(`parsing error obj is undefined for ${url}`);
         }
         else{
-          errorMessage = `Unsupported obj type for ${url} : ${obj['@type'] || 'unknown'}`;
-          console.log(`Unsupported obj type: ${obj['@type'] || 'unknown'}`);
+          errorMessage = `Unsupported obj type: ${obj['@type'] || 'unknown'}`;
+          console.log(`Unsupported obj type for ${url}: ${obj['@type'] || 'unknown'}`);
         }
       } catch (err) {
         errorMessage = `JSON-LD parse error: ${err.message}`;
