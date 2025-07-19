@@ -34,15 +34,18 @@ const ColorThief = require('colorthief');
 // }
 
 async function process_gradient(imageUrl) {
-  const toRGB = rgb => `rgb(${rgb.join(',')})`;
-  const defaultGradient = [toRGB([0, 0, 0]), toRGB([255, 255, 255])];
+  const toRGB = rgb => {
+    if (!Array.isArray(rgb) || rgb.length !== 3) return null;
+    return `rgb(${rgb.join(",")})`;
+  };
 
+  const defaultGradient = [toRGB([0, 0, 0]), toRGB([255, 255, 255])];
   let gradient = [];
   const maxAttempts = 5;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      console.log(`Processing gradient attempt ${attempt} for ${imageUrl}`);
+      console.log(`🎨 Attempt ${attempt} - Processing ${imageUrl}`);
 
       const response = await axios.get(imageUrl, { responseType: "arraybuffer" });
       const buffer = Buffer.from(response.data);
@@ -54,28 +57,27 @@ async function process_gradient(imageUrl) {
       const resizedBuffer = await image.getBufferAsync(mime);
 
       const palette = await ColorThief.getPalette(resizedBuffer, 2);
-
       if (Array.isArray(palette) && palette.length >= 2) {
         const color1 = toRGB(palette[0]);
         const color2 = toRGB(palette[1]);
 
         if (color1 && color2) {
           gradient = [color1, color2];
-          break; // 🎉 Success, exit loop
+          break;
         }
       }
 
-      console.warn(`Invalid palette on attempt ${attempt}, trying again...`);
+      console.warn(`⚠️ Invalid palette on attempt ${attempt}, trying again...`);
     } catch (err) {
-      console.warn(`Attempt ${attempt} failed for ${imageUrl}:`, err.message);
+      console.warn(`❌ Attempt ${attempt} failed: ${err.message}`);
     }
 
-    // Optional: delay between retries (e.g. 100ms)
     await new Promise(res => setTimeout(res, 100));
   }
 
-  if (gradient.length < 2) {
-    console.warn(`Using fallback gradient for ${imageUrl}`);
+  // Final check: force fallback if gradient is still invalid
+  if (!Array.isArray(gradient) || gradient.length < 2 || !gradient[0] || !gradient[1]) {
+    console.warn(`🔁 Using fallback gradient for ${imageUrl}`);
     gradient = defaultGradient;
   }
 

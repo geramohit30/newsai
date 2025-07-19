@@ -5,6 +5,7 @@ const { XMLParser } = require('fast-xml-parser');
 const mongoose = require('mongoose');
 const connectDB = require('../Utils/mongo_utils');
 const Rssfeed = require('../Models/rssfeedModel');
+const { error } = require('console');
 const parser = new XMLParser();
 const URLS = process.env.SCRAPPING_URLS ? process.env.SCRAPPING_URLS.split(',') : [];
 
@@ -51,7 +52,9 @@ async function scrapheadings(url) {
                     title: ele.title,
                     description: ele.description,
                     link: ele.link ? [ele.link] : [], 
-                    priority: ele.priority ? Number(ele.priority) : 0
+                    priority: ele.priority ? Number(ele.priority) : 0,
+                    errorMessage: "",
+                    success: false 
                 }));
 
             if (formattedItems.length > 0) {
