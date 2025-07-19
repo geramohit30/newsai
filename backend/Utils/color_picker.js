@@ -4,6 +4,7 @@ const ColorThief = require('colorthief');
 
 async function process_gradient(imageUrl) {
     let gradient = [];
+    const toRGB = rgb => `rgb(${rgb.join(',')})`;
     const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
     const buffer = Buffer.from(response.data);
 
@@ -17,10 +18,9 @@ async function process_gradient(imageUrl) {
     if (!palette || palette.length < 2) {
         rgb_flag = false;
         console.warn(`Could not extract a valid color palette, using default colors. ${imageUrl}`);
-        gradient = ['#000000', '#FFFFFF'];
+        gradient = [toRGB('#000000'), toRGB('#FFFFFF')];
     }
     else{
-        const toRGB = rgb => `rgb(${rgb.join(',')})`;
         gradient = [toRGB(palette[0]), toRGB(palette[1])];
         image = null;
     }
@@ -28,7 +28,7 @@ async function process_gradient(imageUrl) {
     // If the palette extraction fails or returns less than 2 colors, use default colors
     if (gradient.length < 2) {
         console.warn(`no gradient found for the image, using default colors. ${imageUrl}`);
-        gradient = ['#000000', '#FFFFFF'];
+        gradient = [toRGB('#000000'), toRGB('#FFFFFF')];
     }
     return gradient;
 }
@@ -42,7 +42,8 @@ async function getTwoColorGradient(imageUrl) {
     return await process_gradient(imageUrl);
   } catch (error) {
     console.error('Error generating gradient:', error.message);
-    return ['#000000', '#FFFFFF'];
+    let toRGB = rgb => `rgb(${rgb.join(',')})`;
+    return [toRGB('#000000'), toRGB('#FFFFFF')];
   }
 }
 
