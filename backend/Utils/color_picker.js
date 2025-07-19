@@ -2,36 +2,87 @@ const axios = require('axios');
 const Jimp = require('jimp');
 const ColorThief = require('colorthief');
 
+// async function process_gradient(imageUrl) {
+//   let gradient = [];
+//   const toRGB = rgb => `rgb(${rgb.join(',')})`;
+//   const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+//   const buffer = Buffer.from(response.data);
+
+//   let image = await Jimp.read(buffer);
+//   image = image.resize(100, 100);
+
+//   const mime = image.getMIME();
+//   const resizedBuffer = await image.getBufferAsync(mime);
+
+//   const palette = await ColorThief.getPalette(resizedBuffer, 2);
+//   if (!palette || palette.length < 2) {
+//     rgb_flag = false;
+//     console.warn(`Could not extract a valid color palette, using default colors. ${imageUrl}`);
+//     gradient = [toRGB([0, 0, 0]), toRGB([255, 255, 255])];
+//   }
+//   else {
+//     gradient = [toRGB(palette[0]), toRGB(palette[1])];
+//     image = null;
+//   }
+//   global.gc && global.gc();
+//   // If the palette extraction fails or returns less than 2 colors, use default colors
+//   if (gradient.length < 2) {
+//     console.warn(`no gradient found for the image, using default colors. ${imageUrl}`);
+//     gradient = [toRGB([0, 0, 0]), toRGB([255, 255, 255])];
+//   }
+//   return gradient;
+// }
+
 async function process_gradient(imageUrl) {
-  let gradient = [];
   const toRGB = rgb => `rgb(${rgb.join(',')})`;
-  const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-  const buffer = Buffer.from(response.data);
+  const defaultGradient = [toRGB([0, 0, 0]), toRGB([255, 255, 255])];
 
-  let image = await Jimp.read(buffer);
-  image = image.resize(100, 100);
+  let gradient = [];
+  const maxAttempts = 5;
 
-  const mime = image.getMIME();
-  const resizedBuffer = await image.getBufferAsync(mime);
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      console.log(`Processing gradient attempt ${attempt} for ${imageUrl}`);
 
-  const palette = await ColorThief.getPalette(resizedBuffer, 2);
-  if (!palette || palette.length < 2) {
-    rgb_flag = false;
-    console.warn(`Could not extract a valid color palette, using default colors. ${imageUrl}`);
-    gradient = [toRGB([0, 0, 0]), toRGB([255, 255, 255])];
+      const response = await axios.get(imageUrl, { responseType: "arraybuffer" });
+      const buffer = Buffer.from(response.data);
+
+      let image = await Jimp.read(buffer);
+      image = image.resize(100, 100);
+
+      const mime = image.getMIME();
+      const resizedBuffer = await image.getBufferAsync(mime);
+
+      const palette = await ColorThief.getPalette(resizedBuffer, 2);
+
+      if (Array.isArray(palette) && palette.length >= 2) {
+        const color1 = toRGB(palette[0]);
+        const color2 = toRGB(palette[1]);
+
+        if (color1 && color2) {
+          gradient = [color1, color2];
+          break; // 🎉 Success, exit loop
+        }
+      }
+
+      console.warn(`Invalid palette on attempt ${attempt}, trying again...`);
+    } catch (err) {
+      console.warn(`Attempt ${attempt} failed for ${imageUrl}:`, err.message);
+    }
+
+    // Optional: delay between retries (e.g. 100ms)
+    await new Promise(res => setTimeout(res, 100));
   }
-  else {
-    gradient = [toRGB(palette[0]), toRGB(palette[1])];
-    image = null;
-  }
-  global.gc && global.gc();
-  // If the palette extraction fails or returns less than 2 colors, use default colors
+
   if (gradient.length < 2) {
-    console.warn(`no gradient found for the image, using default colors. ${imageUrl}`);
-    gradient = [toRGB([0, 0, 0]), toRGB([255, 255, 255])];
+    console.warn(`Using fallback gradient for ${imageUrl}`);
+    gradient = defaultGradient;
   }
+
+  global.gc && global.gc();
   return gradient;
 }
+
 
 async function getTwoColorGradient(imageUrl) {
   try {

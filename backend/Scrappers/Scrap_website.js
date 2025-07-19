@@ -243,7 +243,7 @@ async function processUrl(url, feedId) {
         }
         else {
           errorMessage = `Unsupported obj type: ${obj['@type'] || 'unknown'}`;
-          console.log(`Unsupported obj type for ${url}: ${obj['@type'] || 'unknown'}`);
+          // no need for console.log here, as we will log it later
         }
       } catch (err) {
         errorMessage = `JSON-LD parse error: ${err.message}`;
