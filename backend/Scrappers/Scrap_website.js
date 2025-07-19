@@ -176,6 +176,7 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
 
 async function processUrl(url, feedId) {
   try {
+    let feed = await Rssfeed.findById(feedId);
     let html = (await axios.get(url, { httpsAgent: new https.Agent({ rejectUnauthorized: false }), responseType: 'text' })).data;
     let $ = cheerio.load(html);
     let scripts = $('script[type^="application/ld+json"]');
@@ -189,7 +190,10 @@ async function processUrl(url, feedId) {
 
         if (obj && ['NewsArticle', 'Article', 'LiveBlogPosting', 'ReportageNewsArticle'].includes(obj['@type'])) {
           let body = '', img = '', kw = [], date = '', section = '', headline = obj.headline || '';
-          if (!headline) continue;
+          if (!headline){
+            await feed.updateOne({ $set: { success: false , errorMessage: "headling is empty"} });
+            continue;
+          }
           url = (Array.isArray(url) && url.length >0) ? url[0] : url;
           if (url.includes('theguardian.com')) {
             body = await guardianScraper(url);
@@ -217,12 +221,15 @@ async function processUrl(url, feedId) {
 
           body = cleanHtmlContent(body);
           headline = cleanHtmlContent(headline);
-          if (!body || !headline) continue;
-
+          if (!body || !headline){
+            await feed.updateOne({ $set: { success: false , errorMessage: "body is empty / cleaned headline is empty"} });
+            continue;
+          }
           await summarize_data(body, img, kw, headline, feedId, null, obj.datePublished, section);
           break;
         }
       } catch (err) {
+        await feed.updateOne({ $set: { success: false, errorMessage: `JSON-LD parse error: ${err.message}` } });
         console.error(`⚠️ JSON-LD parse error for ${url}:`, err.message);
       }
     }
