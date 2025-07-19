@@ -247,8 +247,8 @@ async function processUrl(url, feedId) {
       }
     }
     if(ScrapeFailure && errorMessage.length > 0) {
-      await feed.updateOne({ $set: { success: false, errorMessage } });
-      console.log(`❌ Failed to insert data for ${url}: ${errorMessage}`);
+      await feed.updateOne({ $set: { success: false, errorMessage: errorMessage } });
+      console.log(`❌ Failed to scrape data for ${url}: ${errorMessage}`);
     }
     scripts = null;
     $ = null;
