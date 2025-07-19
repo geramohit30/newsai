@@ -2,12 +2,8 @@ const axios = require('axios');
 const Jimp = require('jimp');
 const ColorThief = require('colorthief');
 
-async function getTwoColorGradient(imageUrl) {
-  try {
-    console.log('Generating gradient for image:', imageUrl);
-    if (!imageUrl || typeof imageUrl !== 'string') {
-      throw new Error('Invalid image URL');
-    }
+async function process_gradient(imageUrl) {
+    let gradient = [];
     const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
     const buffer = Buffer.from(response.data);
 
@@ -18,13 +14,32 @@ async function getTwoColorGradient(imageUrl) {
     const resizedBuffer = await image.getBufferAsync(mime);
 
     const palette = await ColorThief.getPalette(resizedBuffer, 2);
-
-    const toRGB = rgb => `rgb(${rgb.join(',')})`;
-    const gradient = [toRGB(palette[0]), toRGB(palette[1])];
-    image = null;
+    if (!palette || palette.length < 2) {
+        rgb_flag = false;
+        console.warn(`Could not extract a valid color palette, using default colors. ${imageUrl}`);
+        gradient = ['#000000', '#FFFFFF'];
+    }
+    else{
+        const toRGB = rgb => `rgb(${rgb.join(',')})`;
+        gradient = [toRGB(palette[0]), toRGB(palette[1])];
+        image = null;
+    }
     global.gc && global.gc();
-
+    // If the palette extraction fails or returns less than 2 colors, use default colors
+    if (gradient.length < 2) {
+        console.warn(`no gradient found for the image, using default colors. ${imageUrl}`);
+        gradient = ['#000000', '#FFFFFF'];
+    }
     return gradient;
+}
+
+async function getTwoColorGradient(imageUrl) {
+  try {
+    console.log('Generating gradient for image:', imageUrl);
+    if (!imageUrl || typeof imageUrl !== 'string') {
+      throw new Error('Invalid image URL');
+    }
+    return await process_gradient(imageUrl);
   } catch (error) {
     console.error('Error generating gradient:', error.message);
     return ['#000000', '#FFFFFF'];

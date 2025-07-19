@@ -20,31 +20,61 @@ async function scrapheadings(url) {
         if (parsedData && parsedData['rss']?.['channel']?.['item']) {
             const items = parsedData['rss']['channel']['item'];
 
+            // const formattedItems = items
+            //     .filter(ele => ele.title && ele.description)
+            //     .map(ele => ({
+            //         title: ele.title,
+            //         description: ele.description,
+            //         link: ele.link ? [ele.link] : [], 
+            //         priority: ele.priority ? Number(ele.priority) : 0 
+            //     }));
+
+            // if (formattedItems.length > 0) {
+            //     // await Rssfeed.insertMany(formattedItems);
+            //     let bulkOps = formattedItems.map(doc => ({
+            //         updateOne: {
+            //             filter: { title: doc.title },          // match condition
+            //             update: { $setOnInsert: doc },         // insert only if not exists
+            //             upsert: true
+            //         }
+            //     }));
+            //     // in case we have index conflicts then ordered false will skip only conflicted entries and not all
+            //     await Rssfeed.bulkWrite(bulkOps, { ordered: false });
+            //     console.log(`Successfully inserted ${formattedItems.length} headings from ${url}`);
+            // } else {
+            //     console.log(`No valid headings found in ${url}`);
+            // }
+            // Step 1: Filter & format the input
             const formattedItems = items
                 .filter(ele => ele.title && ele.description)
                 .map(ele => ({
                     title: ele.title,
                     description: ele.description,
-                    link: ele.link ? [ele.link] : [], 
-                    priority: ele.priority ? Number(ele.priority) : 0 
+                    link: ele.link ? [ele.link] : [],
+                    priority: ele.priority ? Number(ele.priority) : 0
                 }));
 
             if (formattedItems.length > 0) {
-                // await Rssfeed.insertMany(formattedItems);
-                let bulkOps = formattedItems.map(doc => ({
-                    updateOne: {
-                        filter: { title: doc.title },          // match condition
-                        update: { $setOnInsert: doc },         // insert only if not exists
-                        upsert: true
-                    }
-                }));
-                // in case we have index conflicts then ordered false will skip only conflicted entries and not all
-                await Rssfeed.bulkWrite(bulkOps, { ordered: false });
-                console.log(`Successfully inserted ${formattedItems.length} headings from ${url}`);
+                // Step 2: Get existing titles from DB
+                const titles = formattedItems.map(item => item.title);
+                const existingDocs = await Rssfeed.find({ title: { $in: titles } }).select("title");
+                const existingTitles = new Set(existingDocs.map(doc => doc.title));
+
+                // Step 3: Filter out items that already exist
+                const newItems = formattedItems.filter(item => !existingTitles.has(item.title));
+
+                // Step 4: Insert only the new items
+                if (newItems.length > 0) {
+                    await Rssfeed.insertMany(newItems, { ordered: false });
+                    console.log(`Inserted ${newItems.length} new headings from ${url}`);
+                } else {
+                    console.log(`No new headings to insert from ${url}`);
+                }
             } else {
                 console.log(`No valid headings found in ${url}`);
             }
-    }} catch (error) {
+        }
+    } catch (error) {
         console.error(`Error scraping ${url}:`, error.message);
     }
 }

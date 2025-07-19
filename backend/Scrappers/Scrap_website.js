@@ -91,7 +91,14 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
     if (!raw || max_limit <= 0 || !image) return;
     let data = cleanHtmlContent(raw);
     const hash = headingHash(heading);
-    if (await News.exists({ hash })) return;
+    const feed = await Rssfeed.findById(feedId);
+    if (await News.exists({ hash })){
+      if (!feed.success){
+        await feed.updateOne({ $set: { success: true } });
+        console.log(`✅ Duplicate article found for hash: ${hash}. Marking feed as successful.`);
+      }
+      return;
+    }
 
     const isHindi = /[\u0900-\u097F]/.test(data);
     if (!keywords || keywords.length === 0) keywords = extractKeywords(`${heading} ${data}`, 4);
@@ -99,7 +106,6 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
     const cfg = await fetchFirebaseConfig();
     let isChatgpt = false;
     const autoOk = cfg?.auto_approve ?? false;
-    const feed = await Rssfeed.findById(feedId);
     const srcHost = safeHostname(feed?.link?.[0]);
     if (!srcHost) return;
 
