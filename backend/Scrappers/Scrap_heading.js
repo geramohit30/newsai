@@ -46,22 +46,22 @@ async function scrapheadings(url) {
             // }
             // Step 1: Filter & format the input
             const formattedItems = items
-                .filter(ele => ele.title && ele.description)
+                .filter(ele => ele.title && ele.description && ele.link)
                 .map(ele => ({
                     title: ele.title,
                     description: ele.description,
-                    link: ele.link ? [ele.link] : [],
+                    link: ele.link ? [ele.link] : [], 
                     priority: ele.priority ? Number(ele.priority) : 0
                 }));
 
             if (formattedItems.length > 0) {
-                // Step 2: Get existing titles from DB
-                const titles = formattedItems.map(item => item.title);
-                const existingDocs = await Rssfeed.find({ title: { $in: titles } }).select("title");
-                const existingTitles = new Set(existingDocs.map(doc => doc.title));
+                // Step 2: Get existing links from DB (assume first element in array is unique)
+                const links = formattedItems.map(item => item.link[0]); // extract plain string
+                const existingDocs = await Rssfeed.find({ link: { $in: links } }).select("link");
+                const existingLinks = new Set(existingDocs.map(doc => doc.link[0]));
 
                 // Step 3: Filter out items that already exist
-                const newItems = formattedItems.filter(item => !existingTitles.has(item.title));
+                const newItems = formattedItems.filter(item => !existingLinks.has(item.link[0]));
 
                 // Step 4: Insert only the new items
                 if (newItems.length > 0) {
