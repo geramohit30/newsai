@@ -152,9 +152,15 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
       publishedAt = cleanedDate;
     }
 
+    let approval = autoOk;
+    if (gradients.length < 2) {
+      approval = false;
+      console.log(`Insufficient gradient colors for ${image}, setting approval to false.`);
+    }
+
     await News.create({
       heading: cleanHeading,
-      approved: autoOk,
+      approved: approval,
       hash,
       data: cleanBody,
       language: langGuess,
