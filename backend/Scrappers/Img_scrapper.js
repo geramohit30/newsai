@@ -69,8 +69,8 @@ async function fetchBingImages(keywordsInput, count = 3) {
         }
 
         images.push({
-          url: imageUrl,
-          img: img,
+          url: img,
+          img: imageUrl,
           priority:  priorityCounter+ 1
         });
         priorityCounter+=1;
