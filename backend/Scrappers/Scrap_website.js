@@ -125,7 +125,7 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
     }
 
     if (summ.split(/\s+/).length > 80 && await canMakeChatGPTRequest()) {
-      const gptSummary = await chatWithGPT4Mini(summ);
+      const gptSummary = await chatWithGPT4Mini(summ, isHindi ? 'hi' : 'en');
       isChatgpt = true;
       if (gptSummary) summ = gptSummary;
     }
@@ -137,7 +137,7 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
       (Array.isArray(keywords) && keywords.length > 0) ||
       (typeof keywords === 'string' && keywords.trim().length > 0);
     const originalKeywords = hasOriginalKeywords ? keywords : null;
-    const imageSearchQuery = originalKeywords || heading;
+    const imageSearchQuery = heading;
     const imgs = await getImages(imageSearchQuery, 5);
     const hasValidCategory = Array.isArray(category) ? category.length > 0 : typeof category === 'string' && category.trim() !== '';
     const cats = [...new Set([...(hasValidCategory ? (Array.isArray(category) ? category : [category]) : getCategoryFromKeywords(keywords, heading))].filter(Boolean))];
