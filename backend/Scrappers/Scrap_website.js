@@ -139,7 +139,6 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
     const originalKeywords = hasOriginalKeywords ? keywords : null;
     const imageSearchQuery = originalKeywords || heading;
     const imgs = await getImages(imageSearchQuery, 5);
-    const gradients = await imageGradient(image);
     const hasValidCategory = Array.isArray(category) ? category.length > 0 : typeof category === 'string' && category.trim() !== '';
     const cats = [...new Set([...(hasValidCategory ? (Array.isArray(category) ? category : [category]) : getCategoryFromKeywords(keywords, heading))].filter(Boolean))];
     const langGuess = isHindi ? 'hi' : 'en';
@@ -152,15 +151,23 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
       publishedAt = cleanedDate;
     }
 
-    let approval = autoOk;
-    if (gradients.length < 2) {
-      approval = false;
-      console.log(`Insufficient gradient colors for ${image}, setting approval to false.`);
+    let gradients = [];
+    if (image) {
+      gradients = await imageGradient(image);
+      if (!Array.isArray(gradients) || gradients.length < 2 || !gradients[0] || !gradients[1]) {
+        // fallback: set default gradient if extraction fails
+        gradients = ["rgb(0,0,0)", 'rgb(255,255,255)'];
+        console.log(`No gradient found for the image ${image}, using default colors.`);
+      }
+    }
+    else{
+      gradients = ["rgb(0,0,0)", 'rgb(255,255,255)'];
+      console.log(`No gradient found for the image ${image}, using default colors.`);
     }
 
     await News.create({
       heading: cleanHeading,
-      approved: approval,
+      approved: autoOk,
       hash,
       data: cleanBody,
       language: langGuess,
