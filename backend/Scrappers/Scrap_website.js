@@ -153,18 +153,20 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
 
     let gradients = [];
     if (image) {
+      console.log(`🍺 -> Starting processing gradient for image scrap website: ${image}`);
       gradients = await imageGradient(image);
+      console.log(`🍺 -> Completed processing gradient for image scrap website: ${image} gradients are: ${gradients}`);
       if (!Array.isArray(gradients) || gradients.length < 2 || !gradients[0] || !gradients[1]) {
         // fallback: set default gradient if extraction fails
         gradients = ["rgb(0,0,0)", 'rgb(255,255,255)'];
         console.log(`No gradient found for the image ${image}, using default colors.`);
       }
     }
-    else{
+    else {
       gradients = ["rgb(0,0,0)", 'rgb(255,255,255)'];
       console.log(`No gradient found for the image ${image}, using default colors.`);
     }
-
+    console.log
     await News.create({
       heading: cleanHeading,
       approved: autoOk,
