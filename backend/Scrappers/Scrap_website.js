@@ -39,7 +39,7 @@ function cleanHtmlContent(raw = '') {
 }
 
 function stripEnglishAndPunct(text = '') {
-  return text.replace(/["'`\-–—()\[\]{}:;,.!?|\/]/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  return text.replace(/["'`\-–—()\[\]{}:;,!?|\/]/g, ' ').replace(/\s{2,}/g, ' ').trim();
 }
 
 async function canMakeChatGPTRequest() {
