@@ -288,7 +288,7 @@ async function scrapeWebsite() {
       { errorMessage: "" }
     ],
     createdAt: { $gte: fourHoursAgo }
-  }).sort({ createdAt: -1 }).cursor();
+  }).sort({ createdAt: 1 }).cursor();
 
   for await (const feed of feedCursor) {
     // if (max_limit <= 0) {
