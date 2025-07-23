@@ -21,7 +21,7 @@ const ApiCall = require('../Models/chatgptModel');
 const chatWithGPT4Mini = require('../Utils/chatgpt_utils');
 const { guardianScraper, alJazeeraScraper, bbcScrapper } = require('./General_scrapper');
 
-let max_limit = process.env.MAX_LIMIT ? parseInt(process.env.MAX_LIMIT) : 100;
+let max_limit = 100;
 
 
 function extractKeywords(txt, n = 5) {
@@ -166,7 +166,6 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
       gradients = ["rgb(0,0,0)", 'rgb(255,255,255)'];
       console.log(`No gradient found for the image ${image}, using default colors.`);
     }
-    console.log
     await News.create({
       heading: cleanHeading,
       approved: autoOk,
@@ -274,11 +273,12 @@ async function processUrl(url, feedId) {
     global.gc && global.gc();
 
   } catch (err) {
-    console.error(`❌ Fetch failed for :`, err.message);
+    console.error(`❌ Fetch failed for ${url}, ${err}`);
   }
 }
 
 async function scrapeWebsite() {
+  // max_limit = process.env.MAX_LIMIT ? parseInt(process.env.MAX_LIMIT) : 100;
   await mongoConnect();
   const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
   const feedCursor = Rssfeed.find({
@@ -291,10 +291,10 @@ async function scrapeWebsite() {
   }).sort({ createdAt: -1 }).cursor();
 
   for await (const feed of feedCursor) {
-    if (max_limit <= 0) {
-      console.log('✅ max_limit reached. Stopping feed processing.');
-      break;
-    }
+    // if (max_limit <= 0) {
+    //   console.log('✅ max_limit reached. Stopping feed processing.');
+    //   break;
+    // }
     console.log(`🔗 Processing feed: ${feed.link}`);
     await processUrl(feed.link, feed._id);
     await new Promise(r => setTimeout(r, 200));
