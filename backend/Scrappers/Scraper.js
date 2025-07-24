@@ -24,18 +24,17 @@ async function runScheduledScraper() {
         } catch (error) {
             if (error.code === 11000) {
                 console.log('Scraper already running or lock still valid. Skipping this run.');
-                return
+                process.exit(1);
             } else {
                 await ScraperLock.deleteOne({ name: lockKey }); // Release the lock after scraping
                 console.log('releasing lock: scraping failure.');
                 console.error('Error during scraping:', error);
-                return
+                process.exit(1);
             }
         }
-        return
     } catch (err) {
         console.error('Scraping error:', err);
-        return
+        process.exit(1);
     }
     process.exit(0);
 }
