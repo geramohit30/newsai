@@ -57,7 +57,7 @@ exports.getNews = async (req, res) => {
     }else{
       baseMatch.language = 'en';
     }
-    const sort = { publishedAt: -1 };
+    const sort = { createdAt: -1 };
     let newsList = [];
 
     if (categories) {
