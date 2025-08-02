@@ -1,4 +1,5 @@
 const News = require('../Models/newsModel');
+const SavedNews = require('../Models/bookmarkModel')
 const mongoose = require('mongoose');
 const firebaseConfig = require('../Config/FirebaseConfig')
 const {fetchFirebaseConfig, clearFirebaseConfigCache}  = require('../Config/FirebaseLimitConfig');
@@ -18,14 +19,19 @@ exports.getNews = async (req, res) => {
   try {
     const config = await fetchFirebaseConfig();
     const defaultPageSize = parseInt(config.news_limit) || 15;
-
+    const userId = req?.user?.id
     const {
       categories,
       page = 1,
-      pageSize = defaultPageSize
+      pageSize = defaultPageSize,
+      lang,
     } = req.query;
-
     const { skip, limit } = Pagination(page, pageSize);
+    let savedIdsSet = new Set();
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      const saved = await SavedNews.find({ user: userId }).select('news').lean();
+      savedIdsSet = new Set(saved.map(s => s.news.toString()));
+    }
 
     const projection = {
       heading: 1,
@@ -37,15 +43,21 @@ exports.getNews = async (req, res) => {
       createdAt: 1,
       publishedAt: 1,
       keywords: 1,
-      isSaved: 1,
       source: 1,
       sourceUrl: 1,
       gradient: 1,
-      isChatGpt: 1
+      isChatGpt: 1,
+      images: 1,
+      language: 1,
     };
 
     const baseMatch = { approved: true };
-    const sort = { publishedAt: -1 };
+    if (lang) {
+      baseMatch.language = lang.toLowerCase() === 'hi' ? 'hi' : 'en';
+    }else{
+      baseMatch.language = 'en';
+    }
+    const sort = { createdAt: -1 };
     let newsList = [];
 
     if (categories) {
@@ -85,44 +97,46 @@ exports.getNews = async (req, res) => {
         .limit(limit)
         .lean();
     }
+    const resultWithSaved = newsList.map(article => ({
+      ...article,
+      isSaved: savedIdsSet.has(article._id.toString())
+    }));
 
-    return res.status(200).json({ success: true, data: newsList });
+    return res.status(200).json({ success: true, data: resultWithSaved });
   } catch (error) {
     console.error("Error fetching approved news:", error);
     res.status(500).json({ message: "Error fetching approved news", error: error.message });
   }
 };
 
-exports.getNewsById = async (req, res) => {
-    try {
-        let is_app = req.query.app
-        if(!is_app){
-          let req_id = req.params.id;
-          return res.redirect(`/fallback.html?id=${req_id}`);
-        }
-        const projection = {
-          heading: 1,
-          image: 1,
-          approved: 1,
-          feedId: 1,
-          categories: 1,
-          data: 1,
-          createdAt: 1,
-          publishedAt: 1,
-          keywords: 1,
-          isSaved: 1,
-          source: 1,
-          sourceUrl : 1,
-          gradient: 1,
-          isChatGpt: 1
-        };
-        const newsItem = await News.find({"_id":req.params.id, "approved": true }, projection );
-        if (!newsItem) return res.status(404).json({ message: "News not found" });
 
-        res.json({"success":true, "data":newsItem});
-    } catch (error) {
-        res.status(500).json({ message: "Error fetching news", error: error.message });
-    }
+exports.getNewsById = async (req, res) => {
+  try {
+      const is_app = req.query.app;
+      if (!is_app) return res.redirect(`/fallback.html?id=${req.params.id}`);
+
+      const userId = req.user ? req.user.id : null;
+      let isSaved = false;
+
+      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+          const savedNews = await SavedNews.findOne({ user: userId, news: req.params.id });
+          isSaved = savedNews ? true : false;
+      }
+
+      const projection = {
+          heading: 1, image: 1, approved: 1, feedId: 1, categories: 1, data: 1,
+          createdAt: 1, publishedAt: 1, keywords: 1, source: 1, sourceUrl: 1, gradient: 1, isChatGpt: 1, images: 1, language: 1,
+      };
+
+      const newsItem = await News.findOne({ "_id": req.params.id, "approved": true }, projection).lean();
+      if (!newsItem) return res.status(404).json({ message: "News not found" });
+
+      const resultWithSaved = { ...newsItem, isSaved };
+      res.json({ success: true, data: resultWithSaved });
+
+  } catch (error) {
+      res.status(500).json({ message: "Error fetching news", error: error.message });
+  }
 };
 
 exports.getPendingNews = async (req, res) => {
@@ -186,4 +200,3 @@ exports.getCategories = async (req, res) => {
         return res.status(200).json({ success: true, keywords });
     }
   };
-  

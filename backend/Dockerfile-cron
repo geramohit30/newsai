@@ -1,0 +1,12 @@
+FROM node:20-alpine
+RUN apk update && apk add --no-cache dcron bash
+WORKDIR /app
+EXPOSE 8000
+COPY package.json ./
+COPY . .
+RUN npm install
+COPY cronjobs /etc/cron.d/cronjobs
+RUN chmod 0644 /etc/cron.d/cronjobs
+RUN crontab /etc/cron.d/cronjobs
+RUN mkdir -p /var/log/cron
+CMD crond && node index.js

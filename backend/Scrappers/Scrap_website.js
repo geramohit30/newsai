@@ -1,260 +1,308 @@
+// memory_optimized_scraper.js
+
 const axios = require('axios');
 const cheerio = require('cheerio');
-const he = require('he')
+const he = require('he');
 const https = require('https');
 const mongoose = require('mongoose');
-const connectDB = require('../Utils/mongo_utils');
-const summarizeText = require('../Summarize/hugging_face');
-const nlp = require('../Summarize/nlp')
-const {summarize,cleanText} = require('../Summarize/nlp2')
-const {fetchFirebaseConfig, clearFirebaseConfigCache}  = require('../Config/FirebaseLimitConfig');
-const News = require('../Models/newsModel');
-const Rssfeed = require('../Models/rssfeedModel');
-const getCategoryFromKeywords = require('../Summarize/category');
-const getImages = require('./Img_scrapper')
 const { URL } = require('url');
-const firebaseConfig = require('../Config/FirebaseConfig')
 const crypto = require('crypto');
 const stringSimilarity = require('string-similarity');
-const imageGradient = require('../Utils/color_picker')
-const ApiCall = require('../Models/chatgptModel')
-const chatWithGPT4Mini = require('../Utils/chatgpt_utils')
 
-const UNWANTED_PHRASES = [
-    "click here", 
-    "read more", 
-    "follow us", 
-    "subscribe", 
-    "see also", 
-    "advertisement",
-    "exclusive",
-    "limited time offer",
-    "new offer"
-];
+const mongoConnect = require('../Utils/mongo_connect');
+const { summarize, cleanText } = require('../Summarize/nlp2');
+const fetchFirebaseConfig = require('../Config/FirebaseLimitConfig').fetchFirebaseConfig;
+const News = require('../Models/newsModel');
+const Rssfeed = require('../Models/rssfeedModel');
+const getImages = require('./Img_scrapper');
+const getCategoryFromKeywords = require('../Summarize/category');
+const imageGradient = require('../Utils/color_picker');
+const ApiCall = require('../Models/chatgptModel');
+const chatWithGPT4Mini = require('../Utils/chatgpt_utils');
+const { guardianScraper, alJazeeraScraper, bbcScrapper } = require('./General_scrapper');
 
-function generateHeadingHash(heading) {
-    const cleanedHeading = cleanText(heading || "");
-    return crypto.createHash('sha256').update(cleanedHeading).digest('hex');
+let max_limit = 100;
+
+
+function extractKeywords(txt, n = 5) {
+  const counts = {}, words = cleanHtmlContent(txt).toLowerCase().split(/\s+/);
+  words.forEach(w => w.length > 2 && (counts[w] = (counts[w] || 0) + 1));
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, n).map(([w]) => w).join(', ');
 }
 
-function capitalizeSentences(text) {
-    return text.replace(/(^\s*\w|[.!?]\s*\w)/g, match => match.toUpperCase());
+function cleanHtmlContent(raw = '') {
+  return he.decode(raw)
+    .replace(/<script.*?>.*?<\/script>/gis, '')
+    .replace(/<\/?[^>]+(>|$)/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
-async function isSimilarArticle(newText, threshold = 0.9) {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const recentNews = await News.find(
-        { publishedAt: { $gte: thirtyDaysAgo } }, 
-        { data: 1 }
-    ).sort({ createdAt: -1 }).lean();
-
-    for (const article of recentNews) {
-        const similarity = stringSimilarity.compareTwoStrings(newText, article.data);
-        if (similarity > threshold) {
-            console.log(`Found similar article with similarity: ${similarity}`);
-            return true;
-        }
-    }
-    return false;
-}
-
-function cleanTextt(text) {
-    let cleanedText = he.decode(text);
-    UNWANTED_PHRASES.forEach(phrase => {
-        const regex = new RegExp(`\\b${phrase}\\b.*?(?=\\.|\\!|\\?)`, "gi");
-        cleanedText = cleanedText.replace(regex, "").trim();
-    });
-    cleanedText = cleanedText.replace(/\s+/g, " ");
-    return cleanedText;
+function stripEnglishAndPunct(text = '') {
+  return text.replace(/["'`\-–—()\[\]{}:;,.!?|\/]/g, ' ').replace(/\s{2,}/g, ' ').trim();
 }
 
 async function canMakeChatGPTRequest() {
-    const currentTime = Date.now();
-    const oneHourAgo = new Date(currentTime - 60 * 60 * 1000);
-    const currentHourStart = new Date(Math.floor(currentTime / (60 * 60 * 1000)) * (60 * 60 * 1000));
+  const currentTime = Date.now();
+  const oneHourAgo = new Date(currentTime - 60 * 60 * 1000);
+  const currentHourStart = new Date(Math.floor(currentTime / (60 * 60 * 1000)) * (60 * 60 * 1000));
 
-    let apiCallRecord = await ApiCall.findOne({ timestamp: { $gte: currentHourStart } });
+  let apiCallRecord = await ApiCall.findOne({ timestamp: { $gte: currentHourStart } });
 
-    if (apiCallRecord) {
-        if (apiCallRecord.count >= process.env.RATE_LIMIT) {
-            console.log('Rate limit exceeded. Skipping GPT-4 request.');
-            return false;
-        }
-        apiCallRecord.count += 1;
-        await apiCallRecord.save();
-        return true;
-    } else {
-        const newApiCallRecord = new ApiCall({
-            count: 1,
-            timestamp: currentTime,
-        });
-        await newApiCallRecord.save();
-        return true;
+  if (apiCallRecord) {
+    if (apiCallRecord.count >= process.env.RATE_LIMIT) {
+      console.log('Rate limit exceeded. Skipping GPT-4 request.');
+      return false;
     }
+    apiCallRecord.count += 1;
+    await apiCallRecord.save();
+    return true;
+  } else {
+    const newApiCallRecord = new ApiCall({
+      count: 1,
+      timestamp: currentTime,
+    });
+    await newApiCallRecord.save();
+    return true;
+  }
 }
 
-async function summarize_data(data, image, keywords, heading, heading_id, author = null, publishedAt = null, category = null) {
-    if (!data) {
-        console.log('The data value is:', data);
-        await Rssfeed.updateOne({ _id: heading_id }, { $set: { success: false } });
-        return;
-    }
-    const headingHash = generateHeadingHash(heading);
-    const existsByHeading = await News.findOne({ hash: headingHash });
-    if (existsByHeading) {
-        console.log('Duplicate found by heading hash, skipping...');
-        return;
-    }
-    const config = await fetchFirebaseConfig();
-    let summ_text, images, head, source, auto_approve;
-    auto_approve = config && config.auto_approve ? config.auto_approve : false;
-    try {
-        const feed = await Rssfeed.findById(heading_id);
-        if (!feed || !feed.link) {
-            console.log(`No URL found for feed with ID ${heading_id}`);
-            return;
-        }
-
-        source = new URL(feed.link[0]).hostname.split('.').slice(-2, -1)[0].trim();
-
-        [summ_text, images] = await Promise.all([
-            summarize(data, 2),
-            getImages(keywords, 5)
-        ]);
-
-        if (!summ_text) {
-            console.log('Got empty summarization result');
-            return;
-        }
-        summ_text = summ_text.replace(/^["',\s]+/, '');
-        const words = summ_text.trim().split(/\s+/);
-        if (words.length > 90) {
-            summ_text = words.slice(0, 90).join(' ') + ".";
-        }
-        let isChatgpt = false;
-        if (words.length > 80) {
-            console.log("Summary exceeds 80 words, checking rate limit for GPT-4 Mini...");
-            
-            const canMakeRequest = await canMakeChatGPTRequest();
-            if (!canMakeRequest) {
-                console.log("Rate limit exceeded. Skipping GPT-4 request.");
-            }
-            else {
-                console.log('Hitting chatgpt');
-                isChatgpt = true;
-                summ_text = await chatWithGPT4Mini(summ_text);
-                if(!summ_text){
-                    console.log('ISSUE | No response from Chatgpt')
-                    return;
-                }
-            }
-        }
-        try {
-            head = cleanTextt(heading);
-        } catch (error) {
-            console.log('Error while cleaning heading:', error);
-            head = heading;
-        }
-
-        // Check for duplicate content
-        const isDuplicateByContent = await isSimilarArticle(summ_text);
-        if (isDuplicateByContent) {
-            console.log('Duplicate found by content similarity, skipping...');
-            return;
-        }
-
-        let getCategory = getCategoryFromKeywords(keywords);
-        if (getCategory.length === 1 && getCategory[0] === "Uncategorized") {
-            getCategory = [];
-        }
-        const uniqueCategories = [...new Set([category, ...getCategory].filter(Boolean))];
-        source = source == "hindustantimes" ? "Hindustan Times" : source == "indiatoday" ? "India Today" : capitalizeSentences(source);
-
-        let gradients = [];
-        if (image?.url) gradients = await imageGradient(image?.url);
-
-        // Save the processed news item
-        await News.create({
-            heading: cleanText(head),
-            approved: auto_approve ? auto_approve : false,
-            keywords,
-            data: summ_text,
-            image: image?.url || "",
-            images,
-            feedId: heading_id,
-            categories: uniqueCategories,
-            source,
-            sourceUrl: feed.link[0].trim(),
-            publishedAt,
-            hash: headingHash,
-            gradient: gradients,
-            isChatGpt: isChatgpt
-        });
-
-        await Rssfeed.updateOne({ _id: heading_id }, { $set: { success: true } });
-
-    } catch (err) {
-        console.error('Error during summarize_data:', err);
-        await Rssfeed.updateOne({ _id: heading_id }, { $set: { success: false } });
-    }
+function headingHash(h) {
+  return crypto.createHash('sha256').update(cleanText(h || '')).digest('hex');
 }
 
+function safeHostname(url) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+}
 
-async function data_update(url, heading_id) {
-    console.log('Processing URL:', url[0]);
+async function similarArticle(text, thresh = 0.9) {
+  const since = new Date();
+  since.setDate(since.getDate() - 30);
+  const rec = await News.find({ publishedAt: { $gte: since } }, { data: 1 }).sort({ _id: -1 }).limit(100).lean();
+  return rec.some(a => stringSimilarity.compareTwoStrings(text, a.data) > thresh);
+}
 
-    try {
-        const { data } = await axios.get(url[0], {
-            httpsAgent: new https.Agent({ rejectUnauthorized: false })
-        });
+async function summarize_data(raw, image, keywords, heading, feedId, author = null, publishedAt = null, category = null) {
+  try {
+    if (!raw || max_limit <= 0 || !image) return;
+    let data = cleanHtmlContent(raw);
+    const hash = headingHash(heading);
+    const feed = await Rssfeed.findById(feedId);
+    if (await News.exists({ hash })) {
+      if (!feed.success) {
+        await feed.updateOne({ $set: { success: true } });
+        console.log(`✅ Duplicate article found for hash: ${hash}. Marking feed as successful.`);
+      }
+      return;
+    }
 
-        const $ = cheerio.load(data);
+    const isHindi = /[\u0900-\u097F]/.test(data);
+    if (!keywords || keywords.length === 0) keywords = extractKeywords(`${heading} ${data}`, 4);
 
-        $('script[type^="application"]').each((_, element) => {
+    const cfg = await fetchFirebaseConfig();
+    let isChatgpt = false;
+    const autoOk = cfg?.auto_approve ?? false;
+    const srcHost = safeHostname(feed?.link?.[0]);
+    if (!srcHost) return;
+
+    let source = srcHost.split('.').slice(-2, -1)[0];
+    source = source === 'hindustantimes' ? 'Hindustan Times' :
+      source === 'indiatoday' ? 'India Today' :
+        source.charAt(0).toUpperCase() + source.slice(1);
+
+    let summ = isHindi
+      ? data.split(/[।!?]/).filter(s => s.length > 20).slice(0, 3).join('। ') + '।'
+      : (await summarize(cleanText(data), 2) || '').trim();
+
+    if (!summ || await similarArticle(summ)) {
+      await feed.updateOne({ $set: { success: true } });
+      console.log(`✅✅ Similar article found for hash: ${hash}. Marking feed as successful.`);
+      return;
+    }
+
+    if (summ.split(/\s+/).length > 80 && await canMakeChatGPTRequest()) {
+      const gptSummary = await chatWithGPT4Mini(summ);
+      isChatgpt = true;
+      if (gptSummary) summ = gptSummary;
+    }
+
+    if (summ.split(/\s+/).length > 100) {
+      summ = summ.split(/\s+/).slice(0, 100).join(' ') + (isHindi ? '।' : '.');
+    }
+    const hasOriginalKeywords =
+      (Array.isArray(keywords) && keywords.length > 0) ||
+      (typeof keywords === 'string' && keywords.trim().length > 0);
+    const originalKeywords = hasOriginalKeywords ? keywords : null;
+    const imageSearchQuery = originalKeywords || heading;
+    const imgs = await getImages(imageSearchQuery, 5);
+    const hasValidCategory = Array.isArray(category) ? category.length > 0 : typeof category === 'string' && category.trim() !== '';
+    const cats = [...new Set([...(hasValidCategory ? (Array.isArray(category) ? category : [category]) : getCategoryFromKeywords(keywords, heading))].filter(Boolean))];
+    const langGuess = isHindi ? 'hi' : 'en';
+    let cleanHeading = cleanText(heading), cleanBody = summ;
+
+    if (isHindi) {
+      cleanHeading = stripEnglishAndPunct(cleanHeading);
+      cleanBody = stripEnglishAndPunct(cleanBody);
+      const cleanedDate = publishedAt.replace(/\\T/, 'T')
+      publishedAt = cleanedDate;
+    }
+
+    let gradients = [];
+    if (image) {
+      console.log(`🍺 -> Starting processing gradient for image scrap website: ${image}`);
+      gradients = await imageGradient(image);
+      console.log(`🍺 -> Completed processing gradient for image scrap website: ${image} gradients are: ${gradients}`);
+      if (!Array.isArray(gradients) || gradients.length < 2 || !gradients[0] || !gradients[1]) {
+        // fallback: set default gradient if extraction fails
+        gradients = ["rgb(0,0,0)", 'rgb(255,255,255)'];
+        console.log(`No gradient found for the image ${image}, using default colors.`);
+      }
+    }
+    else {
+      gradients = ["rgb(0,0,0)", 'rgb(255,255,255)'];
+      console.log(`No gradient found for the image ${image}, using default colors.`);
+    }
+    await News.create({
+      heading: cleanHeading,
+      approved: autoOk,
+      hash,
+      data: cleanBody,
+      language: langGuess,
+      feedId,
+      keywords,
+      source,
+      image,
+      images: imgs,
+      gradient: gradients,
+      sourceUrl: feed.link[0].trim(),
+      publishedAt,
+      categories: cats,
+      isChatGpt: isChatgpt
+    });
+    await feed.updateOne({ $set: { success: true } });
+    max_limit--;
+    global.gc && global.gc();
+
+  } catch (e) {
+    console.error('Error in summarize_data:', e.message);
+  }
+}
+
+async function processUrl(url, feedId) {
+  try {
+    let feed = await Rssfeed.findById(feedId);
+    let html = (await axios.get(url, { httpsAgent: new https.Agent({ rejectUnauthorized: false }), responseType: 'text' })).data;
+    let $ = cheerio.load(html);
+    let scripts = $('script[type^="application/ld+json"]');
+    html = null;
+
+    let ScrapeFailure = true, errorMessage = '';
+    for (let i = 0; i < scripts.length; i++) {
+      try {
+        let obj = JSON.parse($(scripts[i]).html().replace(/[\u0000-\u001F]+/g, ''));
+        if (obj['@graph']) obj = obj['@graph'].find(o => ['NewsArticle', 'Article'].includes(o['@type']));
+        if (Array.isArray(obj)) obj = obj.find(o => o['@type'] === 'NewsArticle');
+
+        if (obj && ['NewsArticle', 'Article', 'LiveBlogPosting', 'ReportageNewsArticle'].includes(obj['@type'])) {
+          let body = '', img = '', kw = [], date = '', section = '', headline = obj.headline || '';
+          if (!headline) {
+            errorMessage = 'headline is empty';
+            console.log(`headline is empty for ${url}`);
+            continue;
+          }
+          url = (Array.isArray(url) && url.length > 0) ? url[0] : url;
+          if (url.includes('theguardian.com')) {
+            body = await guardianScraper(url);
+            img = Array.isArray(obj.image) ? obj.image[0] : '';
+            section = [new URL(obj['@id']).pathname.split('/')[1]];
+          } else if (url.includes('aljazeera.com')) {
+            body = await alJazeeraScraper(url);
+            img = Array.isArray(obj.image) ? (typeof obj.image[0] === 'string' ? obj.image[0] : obj.image[0].url || '') : (obj.image?.url || '');
             try {
-                let jsonText = $(element).html().trim();
-                jsonText = jsonText.replace(/[\u0000-\u001F]+/g, "");
-                const parsedata = JSON.parse(jsonText);
-                if (parsedata['@type'] === "NewsArticle" && parsedata['headline']) {
-                    summarize_data(parsedata['articleBody'], parsedata['image'], parsedata['keywords'], parsedata['headline'], heading_id, null, parsedata['datePublished'],parsedata['articleSection']);
-                }
-            } catch (error) {
-                console.log('Error in article scraping:', error.message);
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching article:', error.message);
+              section = [new URL(obj.mainEntityOfPage || url).pathname.split('/')[1]];
+            } catch { }
+          }
+          else if (url.includes('bbc.com')) {
+            body = await bbcScrapper(url);
+            img = Array.isArray(obj.image) ? (typeof obj.image[0] === 'string' ? obj.image[0] : obj.image[0].url || '') : (obj.image?.url || '');
+            try {
+              section = [new URL(obj.mainEntityOfPage || url).pathname.split('/')[1]];
+            } catch { }
+          }
+          else {
+            body = obj.articleBody || obj.description || '';
+            img = obj.image?.url || (Array.isArray(obj.image) ? obj.image[0]?.url : '');
+            section = obj.articleSection || '';
+          }
+
+          body = cleanHtmlContent(body);
+          headline = cleanHtmlContent(headline);
+          if (!body || !headline) {
+            errorMessage = 'body is empty / cleaned headline is empty';
+            console.log(`body is empty / cleaned headline is empty for ${url}`);
+            continue;
+          }
+          await summarize_data(body, img, kw, headline, feedId, null, obj.datePublished, section);
+          ScrapeFailure = false;
+          errorMessage = '';
+          break;
+        }
+        else if (!obj) {
+          errorMessage = 'parsing error obj is undefined';
+          console.log(`parsing error obj is undefined for ${url}`);
+        }
+        else {
+          errorMessage = `Unsupported obj type: ${obj['@type'] || 'unknown'}`;
+          // no need for console.log here, as we will log it later
+        }
+      } catch (err) {
+        errorMessage = `JSON-LD parse error: ${err.message}`;
+        console.error(`⚠️ JSON-LD parse error for ${url}:`, err.message);
+      }
     }
+    if (ScrapeFailure && errorMessage.length > 0) {
+      await feed.updateOne({ $set: { success: false, errorMessage: errorMessage } });
+      console.log(`❌ Failed to scrape data for ${url}: ${errorMessage}`);
+    }
+    scripts = null;
+    $ = null;
+    global.gc && global.gc();
+
+  } catch (err) {
+    console.error(`❌ Fetch failed for ${url}, ${err}`);
+  }
 }
 
 async function scrapeWebsite() {
-    try {
-        if (mongoose.connection.readyState !== 1) {
-            console.log("MongoDB not connected.");
-            await connectDB();
-        }
+  // max_limit = process.env.MAX_LIMIT ? parseInt(process.env.MAX_LIMIT) : 100;
+  await mongoConnect();
+  const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+  const feedCursor = Rssfeed.find({
+    success: false,
+    $or: [
+      { errorMessage: { $exists: false } },
+      { errorMessage: "" }
+    ],
+    createdAt: { $gte: fourHoursAgo }
+  }).sort({ createdAt: 1 }).cursor();
 
-        const all_data = await Rssfeed.find({success:false}).sort({ createdAt: -1 }).lean();
+  for await (const feed of feedCursor) {
+    // if (max_limit <= 0) {
+    //   console.log('✅ max_limit reached. Stopping feed processing.');
+    //   break;
+    // }
+    console.log(`🔗 Processing feed: ${feed.link}`);
+    await processUrl(feed.link, feed._id);
+    await new Promise(r => setTimeout(r, 200));
+    global.gc && global.gc();
+  }
 
-        if (!all_data.length) {
-            console.log("No headings found in the database.");
-            return;
-        }
-        for (const doc of all_data) {
-            try{
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            await data_update(doc.link, doc._id);
-        }
-        catch(err){
-            console.log('Error in data update', err.message, doc);
-        }
-        }
-
-    } catch (error) {
-        console.error('Error scraping website:', error.message);
-    }
+  console.log('✅ Scraping done.');
+  global.gc && global.gc();
 }
 
 module.exports = scrapeWebsite;

@@ -66,7 +66,11 @@ const newsSchema = new mongoose.Schema({
   isChatGpt:{
     type:Boolean,
     default: false
-  }
+  },
+  language: {
+    type: String,
+    default: 'en'
+  },
 }, { 
   timestamps: true 
 });
@@ -75,5 +79,21 @@ newsSchema.index({ approved: 1 });
 newsSchema.index({ feedId: 1 });
 newsSchema.index({ categories: 1 });
 newsSchema.index({ feedId: 1, approved: 1 });
+
+
+newsSchema.post('findOneAndDelete', async function(doc) {
+  if (doc) {
+    await SavedNews.deleteMany({ news: doc._id });
+  }
+});
+
+newsSchema.pre('remove', async function(next) {
+  try {
+    await SavedNews.deleteMany({ news: this._id });
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 module.exports = mongoose.model('news', newsSchema);

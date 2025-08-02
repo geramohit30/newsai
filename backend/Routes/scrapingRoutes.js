@@ -6,7 +6,7 @@ const { adminAuth } = require('../Middlewares/adminMiddleware');
 
 
 router.get('/scrape-now', scrapingController.scrapeNow);
-router.get('/del-scrape', scrapingController.deleteOld);
+router.get('/del-now', scrapingController.deleteOld);
 
 
 module.exports = router;

@@ -19,7 +19,7 @@ exports.saveNews = async (req, res) => {
     }
 
     const savedNews = await SavedNews.create({ user: userId, news: newsId });
-    await News.findOneAndUpdate({_id : newsId}, {isSaved : true});
+    // await News.findOneAndUpdate({_id : newsId}, {isSaved : true});
     res.status(201).json({ success: true, message: 'News saved sttccessfully', savedNews });
   } catch (error) {
     console.error('Error saving news:', error);
@@ -36,7 +36,7 @@ exports.unsaveNews = async (req, res) => {
       if (!result) {  
         return res.status(404).json({ success: false, message: 'News not found in saved articles' });
       }
-      await News.findOneAndUpdate({_id : newsId}, {isSaved : false});
+      // await News.findOneAndUpdate({_id : newsId}, {isSaved : false});
   
       res.status(200).json({ success: true, message: 'News unsaved successfully' });
     } catch (error) {

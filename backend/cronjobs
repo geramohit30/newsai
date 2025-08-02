@@ -1,0 +1,1 @@
+0 * * * * /usr/local/bin/node /app/Crons/scrap.js >> /var/log/cron.log 2>&1 || echo "Not find" >> /var/log/cron.log 2>&1
