@@ -51,7 +51,7 @@ async function fetchBingImages(keywordsInput, count = 3) {
     let res = await axios.get(url, { headers });
     let $ = cheerio.load(res.data);
     let images = [];
-
+    let priorityValue = 0;
     $('a.iusc, div.imgpt').each((i, el) => {
       if (images.length >= count) return false;
 
@@ -59,20 +59,22 @@ async function fetchBingImages(keywordsInput, count = 3) {
       if (!metaRaw) return;
       try {
         const meta = JSON.parse(metaRaw);
-        const imageUrl = meta.murl || meta.purl;
+        const imageUrl = meta.turl || meta.murl;
+        const img = meta.purl || meta.murl;
         const width = meta.ow || 0;
         const height = meta.oh || 0;
         if (!imageUrl) {return};
-
         const ext = imageUrl.split('?')[0].split('.').pop().toLowerCase();
-        if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
-          return;
-        }
+        // if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+        //   return;
+        // }
 
         images.push({
           url: imageUrl,
-          priority: i + 1
+          img: img,
+          priority: priorityValue + 1
         });
+        priorityValue +=1;
       } catch (err) {
         console.log('Error parsing image metadata:', err.message);
       }

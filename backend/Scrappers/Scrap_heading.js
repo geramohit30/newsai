@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({path:'/usr/src/.env'});
 const axios = require('axios');
 const https = require('https');
 const { XMLParser } = require('fast-xml-parser');
