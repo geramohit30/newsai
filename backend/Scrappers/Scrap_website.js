@@ -125,7 +125,13 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
     }
 
     if (summ.split(/\s+/).length > 80 && await canMakeChatGPTRequest()) {
-      const gptSummary = await chatWithGPT4Mini(summ, isHindi ? 'hi' : 'en');
+      let gptSummary = '';
+      if(summ.split(/\s+/).length < 50 ){
+        gptSummary = await chatWithGPT4Mini(summ, isHindi ? 'hi' : 'en', feed?.link?.[0] || '');
+      }
+      else{
+        gptSummary = await chatWithGPT4Mini(summ, isHindi ? 'hi' : 'en');
+      }
       isChatgpt = true;
       if (gptSummary) summ = gptSummary;
     }
