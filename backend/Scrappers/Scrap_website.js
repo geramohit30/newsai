@@ -204,7 +204,15 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
 async function processUrl(url, feedId) {
   try {
     let feed = await Rssfeed.findById(feedId);
-    let html = (await axios.get(url, { httpsAgent: new https.Agent({ rejectUnauthorized: false }), responseType: 'text' })).data;
+    let html = (await axios.get(url, {
+      httpsAgent: new https.Agent({ rejectUnauthorized: false }), responseType: 'text', headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.google.com/',
+        'Connection': 'keep-alive'
+      }
+    })).data;
     let $ = cheerio.load(html);
     let scripts = $('script[type^="application/ld+json"]');
     html = null;
