@@ -123,17 +123,18 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
       console.log(`✅✅ Similar article found for hash: ${hash}. Marking feed as successful.`);
       return;
     }
-
+    let gptSummary = '';
     if (summ.split(/\s+/).length > 80 && await canMakeChatGPTRequest()) {
-      let gptSummary = '';
-      if(summ.split(/\s+/).length < 50 ){
-        gptSummary = await chatWithGPT4Mini(summ, isHindi ? 'hi' : 'en', feed?.link?.[0] || '');
-      }
-      else{
         gptSummary = await chatWithGPT4Mini(summ, isHindi ? 'hi' : 'en');
+        isChatgpt = true;
+        if (gptSummary) summ = gptSummary;
+    }
+    if(!isChatgpt && summ.split(/\s+/).length < 50 && await canMakeChatGPTRequest()) {
+      gptSummary = await chatWithGPT4Mini(summ, isHindi ? 'hi' : 'en', feed?.link?.[0] || '');
+      if (!gptSummary) {
+        return;
       }
-      isChatgpt = true;
-      if (gptSummary) summ = gptSummary;
+      summ = gptSummary;
     }
 
     if (summ.split(/\s+/).length > 100) {
