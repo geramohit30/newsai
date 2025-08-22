@@ -15,7 +15,8 @@ function cleanKeywords(rawInput, maxTerms = 5) {
 
   for (let keyword of keywords) {
     keyword = keyword.toLowerCase()
-      .replace(/\b(to|from|with|in|on|at|by|for|the|of|return|date|time|undocking)\b/g, '')
+      .replace(/\b(to|from|with|in|on|at|by|for|the|of|return|date|time|undocking|q&a)\b/g, '')
+      .replace(/[&|\/\\#,+()$~%.'":*?<>{}]/g, '')  // Remove special characters
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -30,19 +31,24 @@ function cleanKeywords(rawInput, maxTerms = 5) {
 }
 
 async function fetchBingImages(keywordsInput, count = 3) {
-  if (!keywordsInput || (typeof keywordsInput !== 'string' && !Array.isArray(keywordsInput))) {
+  console.log('Fetching Bing images for keywords:', keywordsInput);
+
+  let cleanedKeywords;
+  if (typeof keywordsInput === 'string') {
+    cleanedKeywords = cleanKeywords(keywordsInput);
+  } else if (Array.isArray(keywordsInput)) {
+    cleanedKeywords = cleanKeywords(keywordsInput);
+  } else {
     return [];
   }
-  let query = '';
-  if(typeof keywordsInput !== 'string'){
-    const cleanedKeywords = cleanKeywords(keywordsInput);
-    if (cleanedKeywords.length === 0) return [];
-        query = encodeURIComponent(cleanedKeywords.join(' '));
-  }else{
-    query = keywordsInput;
-  }
 
-  const url = `https://www.bing.com/images/search?q='${query}'&form=HDRSC2&first=1&tsc=ImageBasicHover&qft=+filterui:imagesize-large`;
+  if (cleanedKeywords.length === 0) return [];
+
+  const query = encodeURIComponent(cleanedKeywords.join(' '));
+  // console.log('Final Bing Query:', query); // Debugging output
+
+  const url = `https://www.bing.com/images/search?q=${query}&form=HDRSC2&first=1&tsc=ImageBasicHover&qft=+filterui:imagesize-large`;
+
   const headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
   };
@@ -60,28 +66,25 @@ async function fetchBingImages(keywordsInput, count = 3) {
       try {
         const meta = JSON.parse(metaRaw);
         const imageUrl = meta.turl || meta.murl;
-        const img = meta.purl || meta.murl;
-        const width = meta.ow || 0;
-        const height = meta.oh || 0;
-        if (!imageUrl) {return};
-        const ext = imageUrl.split('?')[0].split('.').pop().toLowerCase();
-        // if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
-        //   return;
-        // }
+        const img = meta.murl || meta.purl;
+        if (!imageUrl) return;
+
+        const ext = img.split('?')[0].split('.').pop().toLowerCase();
+        if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext)) return;
 
         images.push({
-          url: imageUrl,
-          img: img,
-          priority: priorityValue + 1
+          url: img,
+          img: imageUrl,
+          priority: priorityCounter + 1
         });
-        priorityValue +=1;
+        priorityCounter += 1;
       } catch (err) {
         console.log('Error parsing image metadata:', err.message);
       }
     });
     res = null;
     $ = null;
-    global.gc && global.gc()
+    global.gc && global.gc();
     return images;
   } catch (error) {
     console.error('Failed to fetch Bing images:', error.message);
