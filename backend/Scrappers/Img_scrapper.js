@@ -84,8 +84,8 @@ async function scrapeBingImages({ query, count = 10, market = 'en-US', cc = 'US'
       if (!meta || !meta.murl) continue;
 
       results.push({
-        url: meta.murl || meta.purl,
-        img: meta.turl || meta.murl,
+        url: meta.turl || meta.murl,
+        img: meta.murl || meta.purl,
         priority: priorityCounter + 1
       });
       priorityCounter++;
@@ -98,6 +98,5 @@ async function scrapeBingImages({ query, count = 10, market = 'en-US', cc = 'US'
 
   return results;
 }
-
 
 module.exports = {scrapeBingImages};
