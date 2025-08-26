@@ -99,4 +99,4 @@ async function scrapeBingImages({ query, count = 10, market = 'en-US', cc = 'US'
   return results;
 }
 
-module.exports = {scrapeBingImages};
+module.exports = scrapeBingImages;
