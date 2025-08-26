@@ -63,7 +63,7 @@ async function fetchBingImageHtml({ query, market = 'en-US', cc = 'US', setLang 
   throw lastErr;
 }
 
-async function scrapeBingImages({ query, count = 10, market = 'en-US', cc = 'US', setLang = 'en', exact = false, safe = 'off', filters = {} }) {
+async function scrapeBingImages( query, count = 5, market = 'en-US', cc = 'US', setLang = 'en', exact = false, safe = 'off', filters = {} ) {
   const results = [];
   let fetched = 0;
   let offset = 0;

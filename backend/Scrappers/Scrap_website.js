@@ -145,7 +145,7 @@ async function summarize_data(raw, image, keywords, heading, feedId, author = nu
       (typeof keywords === 'string' && keywords.trim().length > 0);
     const originalKeywords = hasOriginalKeywords ? keywords : null;
     const imageSearchQuery = heading;
-    const imgs = await getImages(imageSearchQuery, 5);
+    const imgs = await getImages(imageSearchQuery);
     const hasValidCategory = Array.isArray(category) ? category.length > 0 : typeof category === 'string' && category.trim() !== '';
     const cats = [...new Set([...(hasValidCategory ? (Array.isArray(category) ? category : [category]) : getCategoryFromKeywords(keywords, heading))].filter(Boolean))];
     const langGuess = isHindi ? 'hi' : 'en';
